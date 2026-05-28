@@ -1,0 +1,11 @@
+[project]
+name = "twin-parsers"
+version = "1.0.0"
+requires-python = ">=3.11"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["twin_parsers*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

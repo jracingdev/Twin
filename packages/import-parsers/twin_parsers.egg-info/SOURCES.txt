@@ -1,0 +1,11 @@
+pyproject.toml
+twin_parsers/__init__.py
+twin_parsers/base.py
+twin_parsers/dispatcher.py
+twin_parsers/email_parser.py
+twin_parsers/telegram.py
+twin_parsers/whatsapp.py
+twin_parsers.egg-info/PKG-INFO
+twin_parsers.egg-info/SOURCES.txt
+twin_parsers.egg-info/dependency_links.txt
+twin_parsers.egg-info/top_level.txt

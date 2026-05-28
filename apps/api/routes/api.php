@@ -1,0 +1,189 @@
+<?php
+
+
+
+use App\Http\Controllers\Api\V1\ApiKeyController;
+
+use App\Http\Controllers\Api\V1\AuthController;
+
+use App\Http\Controllers\Api\V1\BillingController;
+
+use App\Http\Controllers\Api\V1\ConsentController;
+
+use App\Http\Controllers\Api\V1\ContactController;
+
+use App\Http\Controllers\Api\V1\ConversationController;
+
+use App\Http\Controllers\Api\V1\DocsController;
+
+use App\Http\Controllers\Api\V1\ImportController;
+
+use App\Http\Controllers\Api\V1\LgpdController;
+
+use App\Http\Controllers\Api\V1\PlaybookController;
+
+use App\Http\Controllers\Api\V1\SuggestController;
+
+use App\Http\Controllers\Api\V1\TimelineController;
+
+use App\Http\Controllers\Api\V1\TrainController;
+
+use App\Http\Controllers\Api\V1\TwinController;
+
+use App\Http\Controllers\Api\V1\TwoFactorController;
+
+use App\Http\Controllers\Api\V1\WebhookController;
+
+use App\Http\Controllers\Api\V1\WebhookSettingsController;
+
+use App\Http\Controllers\Internal\InternalJobCallbackController;
+
+use Illuminate\Support\Facades\Route;
+
+
+
+Route::get('v1/docs', [DocsController::class, 'index']);
+
+Route::get('v1/docs/openapi.yaml', [DocsController::class, 'openapi']);
+
+Route::get('v1/docs/ui', [DocsController::class, 'swaggerUi']);
+
+
+
+Route::prefix('v1')->group(function () {
+
+    Route::post('login', [AuthController::class, 'login']);
+
+    Route::post('register', [AuthController::class, 'register']);
+
+    Route::post('forgot-password', [AuthController::class, 'forgotPassword']);
+
+    Route::post('reset-password', [AuthController::class, 'resetPassword']);
+
+
+
+    Route::middleware(['auth:sanctum', 'tenant', 'tenant.provisioned'])->group(function () {
+
+        Route::post('logout', [AuthController::class, 'logout']);
+
+        Route::get('me', [AuthController::class, 'me']);
+
+        Route::get('organizations', [AuthController::class, 'organizations']);
+
+        Route::post('organizations/switch', [AuthController::class, 'switchOrganization']);
+
+
+
+        Route::get('two-factor/status', [TwoFactorController::class, 'status']);
+
+        Route::post('two-factor/enable', [TwoFactorController::class, 'enable']);
+
+        Route::post('two-factor/confirm', [TwoFactorController::class, 'confirm']);
+
+        Route::delete('two-factor', [TwoFactorController::class, 'disable']);
+
+
+
+        Route::get('billing/subscription', [BillingController::class, 'subscription']);
+
+        Route::get('billing/plans', [BillingController::class, 'plans']);
+
+        Route::post('billing/checkout', [BillingController::class, 'checkout']);
+
+        Route::post('billing/portal', [BillingController::class, 'portal']);
+
+
+
+        Route::get('lgpd/retention', [LgpdController::class, 'retention']);
+
+        Route::post('lgpd/export', [LgpdController::class, 'requestExport']);
+
+        Route::get('lgpd/exports/{export}', [LgpdController::class, 'exportStatus']);
+
+        Route::get('lgpd/exports/{export}/download', [LgpdController::class, 'downloadExport']);
+
+        Route::post('lgpd/account-deletion', [LgpdController::class, 'requestAccountDeletion']);
+
+
+
+        Route::get('webhooks/settings', [WebhookSettingsController::class, 'show']);
+
+        Route::put('webhooks/settings', [WebhookSettingsController::class, 'update']);
+
+        Route::post('webhooks/test', [WebhookSettingsController::class, 'test']);
+
+
+
+        Route::apiResource('contacts', ContactController::class);
+
+        Route::get('conversations', [ConversationController::class, 'index']);
+
+        Route::get('conversations/{conversation}', [ConversationController::class, 'show']);
+
+
+
+        Route::get('twins/{twin}/stats', [TwinController::class, 'stats']);
+
+        Route::get('twins/{twin}/imports', [TwinController::class, 'imports']);
+
+        Route::get('twins/{twin}/playbooks', [TwinController::class, 'playbooks']);
+
+        Route::post('twins/{twin}/playbooks', [PlaybookController::class, 'store']);
+
+        Route::put('twins/{twin}/playbooks/{playbook}', [PlaybookController::class, 'update']);
+
+        Route::delete('twins/{twin}/playbooks/{playbook}', [PlaybookController::class, 'destroy']);
+
+        Route::post('twins/{twin}/purge', [TwinController::class, 'purge'])->name('twins.purge');
+
+        Route::apiResource('twins', TwinController::class);
+
+
+
+        Route::post('imports', [ImportController::class, 'store']);
+
+        Route::get('imports/{import}', [ImportController::class, 'show']);
+
+
+
+        Route::get('consent/latest', [ConsentController::class, 'latest']);
+        Route::post('consent', [ConsentController::class, 'store']);
+
+
+
+        Route::post('suggest', [SuggestController::class, 'store']);
+
+        Route::patch('suggestions/{suggestion}', [SuggestController::class, 'feedback']);
+
+
+
+        Route::post('train/trigger', [TrainController::class, 'trigger']);
+
+        Route::get('train/jobs/{job}', [TrainController::class, 'show']);
+
+
+
+        Route::get('timeline', [TimelineController::class, 'index']);
+
+        Route::get('api-keys', [ApiKeyController::class, 'index']);
+
+        Route::post('api-keys', [ApiKeyController::class, 'store']);
+
+        Route::delete('api-keys/{apiKey}', [ApiKeyController::class, 'destroy']);
+
+    });
+
+});
+
+
+
+Route::post('webhooks/stripe', [WebhookController::class, 'stripe']);
+
+
+
+Route::prefix('internal')->middleware(['internal.secret', 'tenant', 'tenant.provisioned'])->group(function () {
+
+    Route::post('jobs/{id}/complete', [InternalJobCallbackController::class, 'complete']);
+
+});
+

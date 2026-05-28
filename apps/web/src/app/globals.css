@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #0a0e17;
+  --cyan: #22d3ee;
+  --magenta: #e879f9;
+}
+
+body {
+  background: radial-gradient(ellipse at top, #111827 0%, var(--bg) 50%);
+  color: #e2e8f0;
+  min-height: 100vh;
+}
+
+.glass {
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(34, 211, 238, 0.12);
+  border-radius: 1rem;
+}
+
+.neon-text {
+  background: linear-gradient(90deg, var(--cyan), var(--magenta));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}

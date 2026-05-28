@@ -1,0 +1,15 @@
+{
+  "participants": [
+    {"name": "João Silva"},
+    {"name": "Maria"}
+  ],
+  "messages": [
+    {
+      "sender_name": "João Silva",
+      "timestamp_ms": 1710000000000,
+      "content": "Mensagem Facebook",
+      "type": "Generic"
+    }
+  ],
+  "title": "Maria"
+}

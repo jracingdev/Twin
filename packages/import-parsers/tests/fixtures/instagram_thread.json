@@ -1,0 +1,22 @@
+{
+  "participants": [
+    {"name": "Eu"},
+    {"name": "Amigo"}
+  ],
+  "messages": [
+    {
+      "sender_name": "Eu",
+      "timestamp_ms": 1700000000000,
+      "content": "Olá do Instagram",
+      "type": "Generic"
+    },
+    {
+      "sender_name": "Amigo",
+      "timestamp_ms": 1700000060000,
+      "content": "Resposta",
+      "type": "Generic"
+    }
+  ],
+  "title": "Amigo",
+  "is_still_participant": true
+}

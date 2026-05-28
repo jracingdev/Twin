@@ -1,0 +1,50 @@
+{
+    "name": "twin/platform-api",
+    "type": "project",
+    "description": "TWIN Platform API",
+    "require": {
+        "php": "^8.2",
+        "laravel/framework": "^11.0",
+        "laravel/sanctum": "^4.0",
+        "laravel/cashier": "^15.0",
+        "laravel/fortify": "^1.21",
+        "stancl/tenancy": "^3.8",
+        "league/flysystem-aws-s3-v3": "^3.0",
+        "guzzlehttp/guzzle": "^7.8"
+    },
+    "require-dev": {
+        "fakerphp/faker": "^1.23",
+        "laravel/pint": "^1.13",
+        "phpunit/phpunit": "^11.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/",
+            "Database\\Factories\\": "database/factories/",
+            "Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "post-autoload-dump": [
+            "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
+            "@php artisan package:discover --ansi"
+        ]
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "preferred-install": "dist",
+        "sort-packages": true,
+        "platform": {
+            "php": "8.2.30"
+        },
+        "allow-plugins": {
+            "*": true
+        }
+    },
+    "minimum-stability": "stable"
+}
