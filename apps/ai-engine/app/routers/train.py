@@ -1,4 +1,5 @@
 import logging
+import threading
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -30,7 +31,20 @@ def _redis_available() -> bool:
 def _dispatch(task, tenant_id: str, twin_id: str, job_id: str) -> None:
     from app.celery_app import celery_app
 
-    if not celery_app.conf.task_always_eager and not _redis_available():
+    if celery_app.conf.task_always_eager:
+        # Em modo eager (dev sem Redis), a task é síncrona e chamaria o Laravel
+        # de volta enquanto o Laravel está esperando esta resposta — deadlock.
+        # Rodamos em background thread para liberar a resposta HTTP primeiro.
+        def _run():
+            try:
+                task(tenant_id, twin_id, job_id)
+            except Exception:
+                logger.exception("Background task %s failed", task.name)
+
+        threading.Thread(target=_run, daemon=True).start()
+        return
+
+    if not _redis_available():
         raise HTTPException(
             status_code=503,
             detail=(

@@ -3,15 +3,27 @@ from datetime import datetime
 
 from twin_parsers.base import ParsedMessage
 
-# [DD/MM/YYYY, HH:MM:SS] Nome: mensagem  (PT-BR)
+# [DD/MM/YYYY, HH:MM:SS] Nome: mensagem  (PT-BR com colchetes)
 WA_PATTERN_BR = re.compile(
     r"^\[(\d{1,2}/\d{1,2}/\d{2,4}),?\s+(\d{1,2}:\d{2}(?::\d{2})?)\]\s+([^:]+):\s(.*)$",
     re.MULTILINE,
 )
 
-# [M/D/YY, H:MM:SS AM/PM] Name: message  (en-US export)
+# [M/D/YY, H:MM:SS AM/PM] Name: message  (en-US com colchetes)
 WA_PATTERN_US = re.compile(
     r"^\[(\d{1,2}/\d{1,2}/\d{2,4}),?\s+(\d{1,2}:\d{2}(?::\d{2})?)\s*(AM|PM)?\]\s+([^:]+):\s(.*)$",
+    re.MULTILINE | re.IGNORECASE,
+)
+
+# DD/MM/YYYY HH:MM - Nome: mensagem  (Android sem colchetes, PT-BR)
+WA_PATTERN_ANDROID = re.compile(
+    r"^(\d{1,2}/\d{1,2}/\d{2,4}),?\s+(\d{1,2}:\d{2}(?::\d{2})?)\s+-\s+([^:]+):\s(.*)$",
+    re.MULTILINE,
+)
+
+# M/D/YY, H:MM AM/PM - Name: message  (Android sem colchetes, en-US)
+WA_PATTERN_ANDROID_US = re.compile(
+    r"^(\d{1,2}/\d{1,2}/\d{2,4}),?\s+(\d{1,2}:\d{2}(?::\d{2})?)\s*(AM|PM)?\s+-\s+([^:]+):\s(.*)$",
     re.MULTILINE | re.IGNORECASE,
 )
 
@@ -62,7 +74,7 @@ def _is_system(body: str) -> bool:
 
 def parse_whatsapp(text: str, owner_name: str | None = None) -> list[ParsedMessage]:
     messages: list[ParsedMessage] = []
-    patterns = [WA_PATTERN_BR, WA_PATTERN_US]
+    patterns = [WA_PATTERN_BR, WA_PATTERN_US, WA_PATTERN_ANDROID, WA_PATTERN_ANDROID_US]
 
     for pattern in patterns:
         for m in pattern.finditer(text):

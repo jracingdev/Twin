@@ -38,6 +38,10 @@ use App\Http\Controllers\Api\V1\WebhookSettingsController;
 
 use App\Http\Controllers\Internal\InternalJobCallbackController;
 
+use App\Http\Controllers\Api\V1\ChannelCredentialController;
+
+use App\Http\Controllers\Webhooks\ChannelWebhookController;
+
 use Illuminate\Support\Facades\Route;
 
 
@@ -171,6 +175,16 @@ Route::prefix('v1')->group(function () {
 
         Route::delete('api-keys/{apiKey}', [ApiKeyController::class, 'destroy']);
 
+
+
+        Route::get('channel-credentials', [ChannelCredentialController::class, 'index']);
+
+        Route::post('channel-credentials', [ChannelCredentialController::class, 'store']);
+
+        Route::put('channel-credentials/{channelCredential}', [ChannelCredentialController::class, 'update']);
+
+        Route::delete('channel-credentials/{channelCredential}', [ChannelCredentialController::class, 'destroy']);
+
     });
 
 });
@@ -178,6 +192,8 @@ Route::prefix('v1')->group(function () {
 
 
 Route::post('webhooks/stripe', [WebhookController::class, 'stripe']);
+
+Route::match(['get', 'post'], 'webhooks/channel/{platform}/{webhookToken}', [ChannelWebhookController::class, 'handle']);
 
 
 
