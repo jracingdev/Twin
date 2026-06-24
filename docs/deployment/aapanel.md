@@ -598,6 +598,7 @@ Agende no aaPanel → **Cron** (ex.: 03:00 diário).
 | `tenant_not_provisioned` | `php artisan tenants:provision` |
 | Motor IA indisponível no import | Supervisor `twin-ai-engine`; nginx `/ai-engine/` no site web |
 | `POST /imports` 500 | `QUEUE_CONNECTION=redis` + Supervisor `twin-queue`; `chown -R www:www apps/api/storage`; extensão PHP **zip**; `tail storage/logs/laravel.log` |
+| Import **Falhou** — `401 Unauthorized` | Veja [AI_ENGINE_SECRET e caracteres especiais](#ai_engine_secret-e-caracteres-especiais) |
 | Fila não processa | `QUEUE_CONNECTION=redis`, Redis ativo, Supervisor `twin-queue` |
 | `NOAUTH Authentication required` (Redis) | Veja [Redis com senha (aaPanel)](#redis-com-senha-aapanel) |
 | `supervisorctl: could not read config file` | Supervisor não instalado — veja §7 ou `apt install supervisor` |
@@ -610,6 +611,57 @@ Agende no aaPanel → **Cron** (ex.: 03:00 diário).
 | `composer` usa PHP 8.1 / Symfony exige 8.4 | Sempre: `/www/server/php/82/bin/php /usr/local/bin/composer install` |
 | `ext-fileinfo` ausente | aaPanel → PHP 8.2 → Extensions → **fileinfo** → reinicie PHP |
 | `pydantic-core` / Python 3.14 no venv | Ubuntu 26: `sudo apt install python3.13 python3.13-venv` (deadsnakes PPA); `rm -rf apps/ai-engine/.venv`; `PYTHON_BIN=python3.13 ./infra/aapanel/setup.sh` |
+
+---
+
+## AI_ENGINE_SECRET e caracteres especiais
+
+O `#` em valores **sem aspas** no `.env` é tratado como **início de comentário** (Laravel e Python). Se o secret contiver `#`, a API e o motor IA carregam só a parte **antes** do `#`, mas `grep | cut` no shell mostra o valor **inteiro** — o `curl` de teste falha com 401 mesmo com “secrets idênticos” no `diff`.
+
+**Sintoma:** `curl` com secret do `grep` → 401; `twin-ai-engine` com uptime alto após `supervisorctl restart twin-ai-engine` → processo **não** reiniciou (use o grupo `twin:`).
+
+### Corrigir
+
+Coloque o secret **entre aspas duplas** nos dois arquivos (mesmo valor):
+
+```env
+AI_ENGINE_SECRET="seu-secret-com-#-e-outros-caracteres"
+```
+
+Ou gere um secret **sem** `#`, espaços nem aspas:
+
+```bash
+openssl rand -base64 48 | tr -d '/+=' | head -c 64
+```
+
+### Aplicar na VPS
+
+```bash
+cd /www/wwwroot/twin.app.br
+
+# Conferir o que cada runtime realmente carrega (tamanhos devem bater)
+cd apps/api
+sudo -u www /www/server/php/82/bin/php artisan config:show services.ai_engine.secret
+
+cd ../ai-engine
+.venv/bin/python -c "from app.core.config import settings; print(len(settings.ai_engine_secret))"
+
+# Reiniciar o grupo inteiro (nomes corretos do Supervisor)
+sudo supervisorctl restart twin:
+sudo supervisorctl status | grep twin
+```
+
+### Teste curl (use o valor que o Laravel carrega, não só o grep)
+
+```bash
+SECRET=$(grep '^AI_ENGINE_SECRET=' /www/wwwroot/twin.app.br/apps/api/.env | sed 's/^AI_ENGINE_SECRET=//' | tr -d '"')
+curl -s -w "\nHTTP %{http_code}\n" -X POST http://127.0.0.1:8100/ai/ingest/batch \
+  -H "Content-Type: application/json" \
+  -H "X-Internal-Secret: $SECRET" \
+  -d '{"tenant_id":"test","twin_id":"test","batch_id":"test","source":"whatsapp","content":"aGVsbG8="}'
+```
+
+Esperado: **HTTP 200** (não 401).
 
 ---
 

@@ -1,7 +1,13 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
     redis_url: str = "redis://localhost:6379/0"
     pinecone_api_key: str = ""
     pinecone_index: str = "twin-integrated"
@@ -10,10 +16,6 @@ class Settings(BaseSettings):
     ai_engine_secret: str = "change-me-internal-secret"
     laravel_api_url: str = "http://127.0.0.1:8080"
     embed_model: str = "multilingual-e5-large"
-
-    class Config:
-        env_file = ".env"
-        extra = "ignore"
 
 
 settings = Settings()
