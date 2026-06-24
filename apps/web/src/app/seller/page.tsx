@@ -22,6 +22,8 @@ export default function SellerPage() {
 
   const [error, setError] = useState("");
 
+  const [syncMsg, setSyncMsg] = useState("");
+  const [syncing, setSyncing] = useState(false);
   const [form, setForm] = useState({ intent: "greeting", template: "", vertical: "autopecas" });
 
 
@@ -60,8 +62,23 @@ export default function SellerPage() {
 
 
 
-  async function handleCreate(e: FormEvent) {
+  async function handleResync() {
+    if (!twinId) return;
+    setSyncing(true);
+    setSyncMsg("");
+    setError("");
+    try {
+      const res = await twinApi.resyncPlaybooks(twinId);
+      setSyncMsg(res.message || "Playbooks sincronizados com sucesso.");
+      reload();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erro ao sincronizar");
+    } finally {
+      setSyncing(false);
+    }
+  }
 
+  async function handleCreate(e: FormEvent) {
     e.preventDefault();
 
     if (!twinId) return;
@@ -71,7 +88,6 @@ export default function SellerPage() {
     setForm({ intent: "greeting", template: "", vertical: "autopecas" });
 
     reload();
-
   }
 
 
@@ -101,6 +117,22 @@ export default function SellerPage() {
       </p>
 
       <TwinSelect value={twinId} onChange={setTwinId} className="max-w-md" />
+      {twinId && (
+        <button
+          type="button"
+          onClick={() => void handleResync()}
+          disabled={syncing}
+          className="rounded border border-twin-cyan/30 px-3 py-1 text-xs text-twin-cyan disabled:opacity-50"
+        >
+          {syncing ? "Sincronizando…" : "Sincronizar playbooks com IA"}
+        </button>
+      )}
+
+      {syncMsg && (
+        <p className="rounded border border-green-500/30 bg-green-950/30 px-3 py-2 text-sm text-green-300">
+          {syncMsg}
+        </p>
+      )}
 
       {error && <p className="text-sm text-red-400">{error}</p>}
 

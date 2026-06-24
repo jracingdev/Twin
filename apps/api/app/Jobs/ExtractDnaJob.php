@@ -6,6 +6,7 @@ use App\Models\BehavioralDna;
 use App\Models\DnaVersion;
 use App\Models\Message;
 use App\Services\AiEngineClient;
+use App\Services\WebhookDispatcher;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -18,7 +19,7 @@ class ExtractDnaJob implements ShouldQueue
 
     public function __construct(public string $twinId) {}
 
-    public function handle(AiEngineClient $ai): void
+    public function handle(AiEngineClient $ai, WebhookDispatcher $webhooks): void
     {
         $messages = Message::where('twin_id', $this->twinId)
             ->where('role', 'user')
@@ -54,6 +55,12 @@ class ExtractDnaJob implements ShouldQueue
             'version' => $dna->version,
             'payload' => $dna->payload,
             'change_summary' => 'auto_extract',
+        ]);
+
+        $webhooks->dispatchForTenant('dna.updated', [
+            'twin_id' => $this->twinId,
+            'version' => $dna->version,
+            'source' => 'auto_extract',
         ]);
     }
 }

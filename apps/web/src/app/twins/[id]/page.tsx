@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { TrainPanel } from "@/components/TrainPanel";
+import { TwinPersonalityProfile } from "@/components/TwinPersonalityProfile";
 import { twinApi, type ImportBatch, type TwinDetail, type TwinStats } from "@/lib/api";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -145,6 +146,30 @@ export default function TwinDetailPage() {
                 Playground
               </Link>
               <Link
+                href={`/twins/${twinId}/evolution`}
+                className="rounded-lg border border-twin-magenta/40 px-4 py-2 text-sm text-twin-magenta hover:bg-twin-magenta/10"
+              >
+                Evolução DNA
+              </Link>
+              <Link
+                href={`/twins/${twinId}/trainer`}
+                className="rounded-lg border border-twin-cyan/40 px-4 py-2 text-sm text-twin-cyan hover:bg-twin-cyan/10"
+              >
+                Treinar
+              </Link>
+              <Link
+                href={`/twins/${twinId}/replay`}
+                className="rounded-lg border border-twin-magenta/40 px-4 py-2 text-sm text-twin-magenta hover:bg-twin-magenta/10"
+              >
+                Replay
+              </Link>
+              <Link
+                href={`/twins/${twinId}/memory`}
+                className="rounded-lg border border-twin-cyan/30 px-4 py-2 text-sm hover:text-twin-cyan"
+              >
+                Memória
+              </Link>
+              <Link
                 href={`/dashboard?twin=${twinId}`}
                 className="rounded-lg border border-twin-cyan/30 px-4 py-2 text-sm hover:text-twin-cyan"
               >
@@ -190,6 +215,8 @@ export default function TwinDetailPage() {
             <h2 className="mb-4 text-xl font-semibold">Treinamento</h2>
             <TrainPanel twinId={twinId} />
           </div>
+
+          <TwinPersonalityProfile payload={dnaPayload ?? {}} />
 
           <div className="glass p-6">
             <h2 className="mb-4 text-xl font-semibold">Importações recentes</h2>

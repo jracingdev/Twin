@@ -9,12 +9,13 @@ use App\Models\DnaVersion;
 use App\Models\ImportBatch;
 use App\Models\TrainingJob;
 use App\Services\ImportMessagePersister;
+use App\Services\WebhookDispatcher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class InternalJobCallbackController extends Controller
 {
-    public function complete(Request $request, string $id): JsonResponse
+    public function complete(Request $request, string $id, WebhookDispatcher $webhooks): JsonResponse
     {
         $data = $request->validate([
             'job_type' => 'required|in:import_batch,training',
@@ -39,7 +40,7 @@ class InternalJobCallbackController extends Controller
             return $this->completeImport($id, $data);
         }
 
-        return $this->completeTraining($id, $data);
+        return $this->completeTraining($id, $data, $webhooks);
     }
 
     private function completeImport(string $id, array $data): JsonResponse
@@ -65,29 +66,34 @@ class InternalJobCallbackController extends Controller
 
         $wasCompleted = $batch->status === 'completed';
 
-        if (! empty($data['messages'])) {
+        if (! $wasCompleted && ! empty($data['messages'])) {
+            $metadata = $batch->metadata ?? [];
+            $channel = is_string($metadata['channel'] ?? null)
+                ? $metadata['channel']
+                : $batch->source;
+
             app(ImportMessagePersister::class)->persist(
                 $batch->twin_id,
-                $batch->source,
+                $channel,
                 $data['messages']
             );
         }
 
-        $batch->update([
-            'status' => 'completed',
-            'total_messages' => $data['total_messages'] ?? $batch->total_messages,
-            'processed_messages' => $data['processed_messages'] ?? $batch->processed_messages,
-            'completed_at' => $batch->completed_at ?? now(),
-        ]);
-
         if (! $wasCompleted) {
+            $batch->update([
+                'status' => 'completed',
+                'total_messages' => $data['total_messages'] ?? $batch->total_messages,
+                'processed_messages' => $data['processed_messages'] ?? $batch->processed_messages,
+                'completed_at' => now(),
+            ]);
+
             ExtractDnaJob::dispatch($batch->twin_id);
         }
 
         return response()->json(['message' => 'Import completed']);
     }
 
-    private function completeTraining(string $id, array $data): JsonResponse
+    private function completeTraining(string $id, array $data, WebhookDispatcher $webhooks): JsonResponse
     {
         $job = TrainingJob::find($id);
         if (! $job) {
@@ -121,6 +127,12 @@ class InternalJobCallbackController extends Controller
                 'version' => $dna->version,
                 'payload' => $dna->payload,
                 'change_summary' => 'ai_engine_callback',
+            ]);
+
+            $webhooks->dispatchForTenant('dna.updated', [
+                'twin_id' => $job->twin_id,
+                'version' => $dna->version,
+                'source' => 'training_job',
             ]);
         }
 

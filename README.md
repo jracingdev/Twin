@@ -21,6 +21,8 @@ cd d:\twin
 
 Guia completo: [docs/deployment/local-windows.md](docs/deployment/local-windows.md)
 
+**MySQL no servidor:** [docs/deployment/mysql-server.md](docs/deployment/mysql-server.md) — scripts em `scripts/mysql/`
+
 ## Comandos após pull
 
 ```powershell
@@ -30,7 +32,7 @@ composer install
 php artisan migrate --path=database/migrations/landlord --force
 php artisan db:seed --force
 php artisan tenants:provision --seed
-# Obrigatório após seed: cria DB SQLite de cada org e aplica migrations tenant (+ twin demo com --seed)
+# Obrigatório após seed: cria banco MySQL/SQLite de cada org (twin_tenant_*)
 
 # Web
 cd d:\twin\apps\web
@@ -107,7 +109,7 @@ No emulador Android use `10.0.2.2` em vez de `localhost`.
 ## Checklist produção
 
 - [ ] `APP_ENV=production`, `APP_DEBUG=false`
-- [ ] MySQL landlord + tenants provisionados
+- [ ] MySQL: `twin_landlord` + `php artisan tenants:provision` (ver [mysql-server.md](docs/deployment/mysql-server.md))
 - [ ] `QUEUE_CONNECTION=redis` + `queue:work` / Horizon
 - [ ] `AI_ENGINE_SECRET` forte e rotacionado
 - [ ] Stripe live keys + webhook endpoint público

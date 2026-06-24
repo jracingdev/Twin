@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import '../config.dart';
 import '../services/twin_api.dart';
+import 'dashboard_screen.dart';
+import 'inbox_screen.dart';
+import 'replay_screen.dart';
+import 'settings_screen.dart';
 import 'suggestions_screen.dart';
+import 'trainer_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, required this.api, required this.onLogout});
+
+  final TwinApi api;
+  final VoidCallback onLogout;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -13,27 +20,33 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _index = 0;
-  TwinApi? _api;
   String? _twinId;
 
   @override
   void initState() {
     super.initState();
-    if (TwinConfig.token.isNotEmpty && TwinConfig.tenantId.isNotEmpty) {
-      _api = TwinApi();
-      _api!.listTwins().then((twins) {
-        if (twins.isNotEmpty && mounted) {
-          setState(() => _twinId = twins.first['id'] as String?);
-        }
-      });
-    }
+    widget.api.listTwins().then((twins) {
+      if (twins.isNotEmpty && mounted) {
+        setState(() => _twinId = twins.first['id'] as String?);
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    final twinId = _twinId;
+
     final pages = [
-      _ImportTab(api: _api, twinId: _twinId, onOpenSuggestions: () => setState(() => _index = 1)),
-      SuggestionsScreen(api: _api, twinId: _twinId),
+      _ImportTab(api: widget.api, twinId: twinId),
+      if (twinId != null)
+        DashboardScreen(api: widget.api, twinId: twinId)
+      else
+        const Center(child: Text('Crie um twin na web primeiro')),
+      SuggestionsScreen(api: widget.api, twinId: twinId),
+      TrainerScreen(api: widget.api, twinId: twinId),
+      ReplayScreen(api: widget.api, twinId: twinId),
+      InboxScreen(api: widget.api, twinId: twinId),
+      SettingsScreen(api: widget.api),
     ];
 
     return Scaffold(
@@ -44,6 +57,9 @@ class _HomeScreenState extends State<HomeScreen> {
           ).createShader(b),
           child: const Text('TWIN', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         ),
+        actions: [
+          IconButton(icon: const Icon(Icons.logout), onPressed: widget.onLogout),
+        ],
       ),
       body: pages[_index],
       bottomNavigationBar: NavigationBar(
@@ -51,7 +67,12 @@ class _HomeScreenState extends State<HomeScreen> {
         onDestinationSelected: (i) => setState(() => _index = i),
         destinations: const [
           NavigationDestination(icon: Icon(Icons.upload_file), label: 'Importar'),
-          NavigationDestination(icon: Icon(Icons.chat), label: 'Sugestões'),
+          NavigationDestination(icon: Icon(Icons.psychology), label: 'DNA'),
+          NavigationDestination(icon: Icon(Icons.chat), label: 'Sugerir'),
+          NavigationDestination(icon: Icon(Icons.school), label: 'Treinar'),
+          NavigationDestination(icon: Icon(Icons.replay), label: 'Replay'),
+          NavigationDestination(icon: Icon(Icons.inbox), label: 'Inbox'),
+          NavigationDestination(icon: Icon(Icons.settings), label: 'Canais'),
         ],
       ),
     );
@@ -59,11 +80,10 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 class _ImportTab extends StatefulWidget {
-  const _ImportTab({this.api, this.twinId, required this.onOpenSuggestions});
+  const _ImportTab({required this.api, this.twinId});
 
-  final TwinApi? api;
+  final TwinApi api;
   final String? twinId;
-  final VoidCallback onOpenSuggestions;
 
   @override
   State<_ImportTab> createState() => _ImportTabState();
@@ -71,14 +91,16 @@ class _ImportTab extends StatefulWidget {
 
 class _ImportTabState extends State<_ImportTab> {
   bool _uploading = false;
+  String _status = '';
 
   Future<void> _pickAndUpload() async {
-    if (widget.api == null || widget.twinId == null) {
+    if (widget.twinId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Configure TWIN_TOKEN e TWIN_TENANT_ID via dart-define')),
+        const SnackBar(content: Text('Nenhum twin disponível')),
       );
       return;
     }
+
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['txt', 'json', 'csv', 'zip'],
@@ -88,24 +110,44 @@ class _ImportTabState extends State<_ImportTab> {
     final file = result.files.first;
     if (file.bytes == null) return;
 
-    setState(() => _uploading = true);
+    setState(() {
+      _uploading = true;
+      _status = 'Enviando…';
+    });
+
     try {
-      final batch = await widget.api!.uploadImport(
+      final consent = await widget.api.latestConsent();
+      final consentId = consent['id']?.toString() ?? '1';
+      final batch = await widget.api.uploadImport(
         twinId: widget.twinId!,
-        consentId: '1',
+        consentId: consentId,
         fileBytes: file.bytes!,
         filename: file.name,
       );
+      final batchId = batch['id'] as String;
+      setState(() => _status = 'Processando importação…');
+
+      var status = batch['status'] as String? ?? 'queued';
+      var attempts = 0;
+      while (status != 'completed' && status != 'failed' && attempts < 60) {
+        await Future.delayed(const Duration(seconds: 2));
+        final updated = await widget.api.getImportStatus(batchId);
+        status = updated['status'] as String? ?? status;
+        final total = updated['total_messages'] ?? 0;
+        if (mounted) {
+          setState(() => _status = 'Status: $status ($total msgs)');
+        }
+        attempts++;
+      }
+
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Import enfileirado: ${batch['id']}')),
-        );
+        setState(() => _status = status == 'completed'
+            ? 'Importação concluída! DNA sendo extraído.'
+            : 'Importação: $status');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro: $e')),
-        );
+        setState(() => _status = 'Erro: $e');
       }
     } finally {
       if (mounted) setState(() => _uploading = false);
@@ -119,15 +161,13 @@ class _ImportTabState extends State<_ImportTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            'Importar conversas',
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-          ),
+          const Text('Importar conversas', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          Text(
-            'Exportações oficiais com consentimento LGPD.',
-            style: TextStyle(color: Colors.grey.shade400),
-          ),
+          Text('Exportações oficiais com consentimento LGPD.', style: TextStyle(color: Colors.grey.shade400)),
+          if (_status.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Text(_status, style: const TextStyle(color: Color(0xFF22D3EE), fontSize: 13)),
+          ],
           const Spacer(),
           FilledButton.icon(
             onPressed: _uploading ? null : _pickAndUpload,
@@ -135,11 +175,6 @@ class _ImportTabState extends State<_ImportTab> {
                 ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                 : const Icon(Icons.folder_open),
             label: Text(_uploading ? 'Enviando…' : 'Selecionar e enviar'),
-          ),
-          const SizedBox(height: 12),
-          OutlinedButton(
-            onPressed: widget.onOpenSuggestions,
-            child: const Text('Ver sugestões'),
           ),
         ],
       ),

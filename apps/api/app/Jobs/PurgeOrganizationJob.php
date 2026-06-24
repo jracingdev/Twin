@@ -3,12 +3,15 @@
 namespace App\Jobs;
 
 use App\Models\Organization;
+use App\Models\Twin;
 use App\Services\AiEngineClient;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
 
 class PurgeOrganizationJob implements ShouldQueue
 {
@@ -23,9 +26,34 @@ class PurgeOrganizationJob implements ShouldQueue
             return;
         }
 
+        $tenantId = $org->id;
+
         tenancy()->initialize($org);
 
-        // Purge all twins via AI engine + drop tenant database
+        try {
+            foreach (Twin::pluck('id') as $twinId) {
+                try {
+                    $ai->purgeTenant([
+                        'tenant_id' => $tenantId,
+                        'twin_id' => $twinId,
+                    ]);
+                } catch (\Throwable $e) {
+                    Log::warning('PurgeOrganizationJob: falha ao purgar twin no AI engine', [
+                        'organization_id' => $tenantId,
+                        'twin_id' => $twinId,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+
+            $tenantStorage = storage_path('tenant'.$tenantId);
+            if (is_dir($tenantStorage)) {
+                File::deleteDirectory($tenantStorage);
+            }
+        } finally {
+            tenancy()->end();
+        }
+
         $org->delete();
     }
 }

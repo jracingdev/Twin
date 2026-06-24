@@ -45,4 +45,14 @@ class Twin extends Model
     {
         return $this->hasMany(SellerPlaybook::class);
     }
+
+    public function memoryEntities(): HasMany
+    {
+        return $this->hasMany(MemoryEntity::class);
+    }
+
+    public function trainingJobs(): HasMany
+    {
+        return $this->hasMany(TrainingJob::class);
+    }
 }

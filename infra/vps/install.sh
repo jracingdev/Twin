@@ -27,7 +27,8 @@ cd infra/docker
 docker compose -f docker-compose.prod.yml pull
 docker compose -f docker-compose.prod.yml up -d
 
-docker compose -f docker-compose.prod.yml exec api php artisan migrate --force
+docker compose -f docker-compose.prod.yml exec api php artisan migrate --path=database/migrations/landlord --force
 docker compose -f docker-compose.prod.yml exec api php artisan db:seed --force
+docker compose -f docker-compose.prod.yml exec api php artisan tenants:provision --seed
 
 echo "=== TWIN instalado. Configure SSL com certbot. ==="

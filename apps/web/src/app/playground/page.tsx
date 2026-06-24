@@ -1,10 +1,15 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { TwinCoachPanel } from "@/components/TwinCoachPanel";
 import { TwinSelect } from "@/components/TwinSelect";
 import { useAuth } from "@/contexts/AuthContext";
-import { twinApi } from "@/lib/api";
+import { twinApi, type ScoreBreakdown, type SuggestionResponse } from "@/lib/api";
+
+function copyText(text: string) {
+  void navigator.clipboard.writeText(text);
+}
 
 export default function PlaygroundPage() {
   const searchParams = useSearchParams();
@@ -13,13 +18,20 @@ export default function PlaygroundPage() {
   const [twinId, setTwinId] = useState("");
   const [input, setInput] = useState("");
   const [output, setOutput] = useState("");
-  const [suggestionId, setSuggestionId] = useState<string | null>(null);
+  const [suggestion, setSuggestion] = useState<SuggestionResponse | null>(null);
   const [intensity, setIntensity] = useState(2);
+  const [sellerMode, setSellerMode] = useState(false);
+  const [planAllowsSeller, setPlanAllowsSeller] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [feedbackMsg, setFeedbackMsg] = useState("");
+  const [copied, setCopied] = useState(false);
 
   const orgReady = !authLoading && Boolean(organization?.id);
+
+  useEffect(() => {
+    twinApi.getPlan().then((p) => setPlanAllowsSeller(p.seller_mode)).catch(() => {});
+  }, []);
 
   async function handleSuggest() {
     if (!twinId || !input) return;
@@ -33,19 +45,21 @@ export default function PlaygroundPage() {
 
     setLoading(true);
     setError("");
-    setSuggestionId(null);
+    setSuggestion(null);
     setFeedbackMsg("");
+    setCopied(false);
     try {
       const data = await twinApi.suggest(
         {
           twin_id: twinId,
           text: input,
           intensity,
+          seller_mode: sellerMode,
         },
         organization.id
       );
       setOutput(data.suggested_text || data.suggestion || "");
-      setSuggestionId(data.id);
+      setSuggestion(data);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erro ao gerar sugestão");
       setOutput("");
@@ -55,7 +69,7 @@ export default function PlaygroundPage() {
   }
 
   async function sendFeedback(status: "accepted" | "rejected") {
-    if (!suggestionId) return;
+    if (!suggestion?.id) return;
     if (!organization?.id) {
       setError("Organização não disponível para enviar feedback.");
       return;
@@ -63,7 +77,7 @@ export default function PlaygroundPage() {
     setFeedbackMsg("");
     setError("");
     try {
-      const res = await twinApi.feedback(suggestionId, status);
+      const res = await twinApi.feedback(suggestion.id, status);
       setFeedbackMsg(
         res.status === "accepted"
           ? "Feedback registrado: aceita."
@@ -72,6 +86,11 @@ export default function PlaygroundPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erro ao enviar feedback");
     }
+  }
+
+  function handleCopy() {
+    copyText(output);
+    setCopied(true);
   }
 
   return (
@@ -104,6 +123,18 @@ export default function PlaygroundPage() {
           onChange={(e) => setIntensity(Number(e.target.value))}
           className="w-full accent-twin-cyan"
         />
+
+        {planAllowsSeller && (
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={sellerMode}
+              onChange={(e) => setSellerMode(e.target.checked)}
+            />
+            Modo vendedor (playbooks comerciais)
+          </label>
+        )}
+
         <textarea
           className="w-full rounded-lg border border-twin-cyan/20 bg-black/40 p-4 font-mono text-sm"
           rows={4}
@@ -126,8 +157,27 @@ export default function PlaygroundPage() {
             {feedbackMsg && (
               <p className="mt-3 text-sm text-green-300">{feedbackMsg}</p>
             )}
-            {suggestionId && (
-              <div className="mt-4 flex gap-2">
+            <TwinCoachPanel
+              suggestionId={suggestion?.id}
+              intensity={suggestion?.intensity ?? intensity}
+              sellerMode={suggestion?.seller_mode ?? sellerMode}
+              score={suggestion?.score}
+              scoreBreakdown={
+                suggestion?.score_breakdown ??
+                (suggestion?.metadata?.score_breakdown as ScoreBreakdown | undefined) ??
+                null
+              }
+              className="mt-4"
+            />
+            {suggestion && (
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={handleCopy}
+                  className="rounded border border-twin-cyan/40 px-3 py-1 text-sm text-twin-cyan"
+                >
+                  {copied ? "Copiado!" : "Copiar"}
+                </button>
                 <button
                   type="button"
                   onClick={() => sendFeedback("accepted")}

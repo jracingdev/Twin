@@ -25,11 +25,26 @@ export type TwinDetail = Twin & {
   active_dna?: { version?: string; payload?: Record<string, unknown> } | null;
 };
 
+export type SimilarityBaseline = {
+  formalidade?: number;
+  tom_emocional?: number;
+  vocabulario?: number;
+  persuasao?: number;
+  geral?: number;
+};
+
+export type ScoreBreakdown = SimilarityBaseline & {
+  estilo?: number;
+  contexto?: number;
+  playbook?: number;
+};
+
 export type TwinStats = {
   twin_id: string;
   name: string;
   dna_version: string;
   similarity_score: number | null;
+  similarity_baseline?: SimilarityBaseline | null;
   messages_indexed: number;
   radar: { trait: string; value: number }[];
   intents: string[];
@@ -52,6 +67,74 @@ export type SuggestionResponse = {
   suggestion?: string;
   score?: number | null;
   status?: string;
+  intensity?: number;
+  seller_mode?: boolean;
+  score_breakdown?: ScoreBreakdown | null;
+  metadata?: Record<string, unknown> | null;
+};
+
+export type SuggestionExplain = {
+  id: string;
+  score?: number | null;
+  factors: { key: string; label: string; value: number; explanation: string }[];
+  summary: string;
+};
+
+export type InboxSuggestion = {
+  id: string;
+  twin_id: string;
+  contact_id: string | null;
+  input_text: string;
+  suggested_text: string;
+  intensity: number;
+  score: number | null;
+  status: string;
+  metadata?: Record<string, unknown> | null;
+  created_at: string;
+  contact?: { id: string; display_name: string; channel: string } | null;
+};
+
+export type ChannelReplyMode = "assistant" | "copilot" | "auto";
+
+export type ChannelCredential = {
+  id: string;
+  twin_id: string;
+  channel: string;
+  is_active: boolean;
+  reply_mode: ChannelReplyMode | "approval";
+  confidence_threshold?: number;
+  webhook_token: string;
+  webhook_url: string;
+  created_at: string;
+};
+
+export type DnaEvolutionPoint = {
+  version: string;
+  created_at: string | null;
+  radar: { trait: string; value: number }[];
+  deltas: { trait: string; from: number; to: number; delta: number }[];
+  change_summary?: string | null;
+};
+
+export type DnaEvolution = {
+  twin_id: string;
+  versions: DnaEvolutionPoint[];
+};
+
+export type ChannelMetrics = {
+  pending: number;
+  sent_today: number;
+  accept_rate_7d: number | null;
+  avg_response_time_seconds: number | null;
+  avg_response_time_minutes: number | null;
+};
+
+export type PlanSummary = {
+  slug: string;
+  name: string;
+  seller_mode: boolean;
+  twins_limit: number;
+  messages_per_month: number;
 };
 
 export type ImportBatch = {
@@ -93,6 +176,29 @@ export type Playbook = {
   vertical: string;
   template: string;
   usage_count: number;
+};
+
+export type MemoryEntity = {
+  id: string;
+  twin_id: string;
+  type: string;
+  label: string;
+  content?: string | null;
+  metadata?: Record<string, unknown> | null;
+  created_at?: string;
+};
+
+export type TwinTrainResponse = TrainingJob & {
+  examples_used?: number;
+};
+
+export type TwinReplayResponse = {
+  suggested_text: string;
+  suggestion?: string;
+  score?: number | null;
+  score_breakdown?: ScoreBreakdown | null;
+  similarity_baseline?: SimilarityBaseline | null;
+  metadata?: Record<string, unknown> | null;
 };
 
 export type ApiRequestOptions = {
@@ -315,6 +421,7 @@ export const twinApi = {
   deleteTwin: (id: string) =>
     api<void>(`/twins/${id}`, { method: "DELETE" }),
   stats: (id: string) => api<TwinStats>(`/twins/${id}/stats`),
+  dnaEvolution: (id: string) => api<DnaEvolution>(`/twins/${id}/dna/evolution`),
   playbooks: (id: string) => api<{ data: Playbook[] }>(`/twins/${id}/playbooks`),
   purge: (id: string) =>
     api<{ message: string }>(`/twins/${id}/purge`, { method: "POST" }),
@@ -339,6 +446,8 @@ export const twinApi = {
       text: string;
       intensity?: number;
       seller_mode?: boolean;
+      contact_id?: string;
+      conversation_id?: string;
     },
     organizationId?: string | null
   ) =>
@@ -351,11 +460,74 @@ export const twinApi = {
       undefined,
       { organizationId, softAuth: true }
     ),
-  feedback: (id: string, status: "accepted" | "rejected") =>
+  feedback: (id: string, status: "accepted" | "rejected", editedText?: string) =>
     api<{ id: string; status: string }>(`/suggestions/${id}`, {
       method: "PATCH",
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({
+        status,
+        ...(editedText ? { edited_text: editedText } : {}),
+      }),
     }),
+  explainSuggestion: (id: string) =>
+    api<SuggestionExplain>(`/suggestions/${id}/explain`),
+  listSuggestions: (params?: { twin_id?: string; status?: string; page?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.twin_id) q.set("twin_id", params.twin_id);
+    if (params?.status) q.set("status", params.status);
+    if (params?.page) q.set("page", String(params.page));
+    const qs = q.toString();
+    return api<{ data: InboxSuggestion[]; total?: number }>(
+      `/suggestions${qs ? `?${qs}` : ""}`
+    );
+  },
+  sendSuggestion: (id: string, text?: string) =>
+    api<InboxSuggestion>(`/suggestions/${id}/send`, {
+      method: "POST",
+      body: JSON.stringify(text ? { text } : {}),
+    }),
+  channelMetrics: (twinId?: string) =>
+    api<ChannelMetrics>(
+      `/channel-metrics${twinId ? `?twin_id=${twinId}` : ""}`
+    ),
+  suggestionMetrics: (twinId?: string) =>
+    api<{
+      total: number;
+      pending: number;
+      accepted: number;
+      sent: number;
+      rejected: number;
+      accept_rate: number | null;
+    }>(`/suggestions/metrics${twinId ? `?twin_id=${twinId}` : ""}`),
+  getPlan: () => api<PlanSummary>("/plan"),
+  listChannelCredentials: () => api<ChannelCredential[]>("/channel-credentials"),
+  createChannelCredential: (body: {
+    twin_id: string;
+    channel: string;
+    credentials: Record<string, string>;
+    reply_mode?: ChannelReplyMode | "approval";
+    confidence_threshold?: number;
+  }) =>
+    api<ChannelCredential>("/channel-credentials", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  updateChannelCredential: (
+    id: string,
+    body: Partial<{
+      is_active: boolean;
+      reply_mode: ChannelReplyMode | "approval";
+      confidence_threshold: number;
+      credentials: Record<string, string>;
+    }>
+  ) =>
+    api<ChannelCredential>(`/channel-credentials/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  deleteChannelCredential: (id: string) =>
+    api<void>(`/channel-credentials/${id}`, { method: "DELETE" }),
+  resyncPlaybooks: (twinId: string) =>
+    api<{ message: string }>(`/twins/${twinId}/playbooks/resync`, { method: "POST" }),
   trainTrigger: (body: { twin_id: string; type: "dna_extract" | "reindex" | "incremental" }) =>
     api<TrainingJob>("/train/trigger", {
       method: "POST",
@@ -497,6 +669,26 @@ export const twinApi = {
     }),
   deletePlaybook: (twinId: string, playbookId: number) =>
     api<void>(`/twins/${twinId}/playbooks/${playbookId}`, { method: "DELETE" }),
+  twinTrain: (twinId: string) =>
+    api<TwinTrainResponse>(`/twins/${twinId}/train`, { method: "POST" }),
+  twinReplay: (
+    twinId: string,
+    body: { text: string; intensity?: number; seller_mode?: boolean }
+  ) =>
+    api<TwinReplayResponse>(`/twins/${twinId}/replay`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  listMemoryEntities: (twinId: string) =>
+    api<{ data: MemoryEntity[] }>(`/twins/${twinId}/memory-entities`),
+  createMemoryEntity: (
+    twinId: string,
+    body: { type: string; label: string; content?: string }
+  ) =>
+    api<MemoryEntity>(`/twins/${twinId}/memory-entities`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
   apiDocs: () =>
     api<{ title: string; openapi: string; swagger_ui: string }>("/docs"),
 };

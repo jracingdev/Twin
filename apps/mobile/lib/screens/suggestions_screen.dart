@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import '../config.dart';
+import 'package:flutter/services.dart';
 import '../services/twin_api.dart';
 
 class SuggestionsScreen extends StatefulWidget {
-  const SuggestionsScreen({super.key, this.api, this.twinId});
+  const SuggestionsScreen({super.key, required this.api, this.twinId});
 
-  final TwinApi? api;
+  final TwinApi api;
   final String? twinId;
 
   @override
@@ -17,41 +17,42 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> {
   String? _suggestion;
   String? _suggestionId;
   bool _loading = false;
-  late TwinApi _api;
+  bool _sellerMode = false;
+  bool _planSeller = false;
   String? _twinId;
 
   @override
   void initState() {
     super.initState();
-    _api = widget.api ?? TwinApi();
-    _loadTwin();
+    _twinId = widget.twinId;
+    widget.api.getPlan().then((p) {
+      if (mounted) setState(() => _planSeller = p['seller_mode'] == true);
+    });
+    if (_twinId == null) _loadTwin();
   }
 
   Future<void> _loadTwin() async {
-    if (widget.twinId != null) {
-      setState(() => _twinId = widget.twinId);
-      return;
-    }
     try {
-      final twins = await _api.listTwins();
-      if (twins.isNotEmpty) {
+      final twins = await widget.api.listTwins();
+      if (twins.isNotEmpty && mounted) {
         setState(() => _twinId = twins.first['id'] as String?);
       }
     } catch (_) {}
   }
 
   Future<void> _generate() async {
-    if (_twinId == null) {
-      setState(() => _suggestion = 'Configure TWIN_TOKEN e TWIN_TENANT_ID.');
-      return;
-    }
+    if (_twinId == null) return;
     setState(() {
       _loading = true;
       _suggestion = null;
       _suggestionId = null;
     });
     try {
-      final res = await _api.suggest(twinId: _twinId!, text: _controller.text);
+      final res = await widget.api.suggest(
+        twinId: _twinId!,
+        text: _controller.text,
+        sellerMode: _sellerMode,
+      );
       setState(() {
         _suggestion = res['suggested_text'] as String? ?? res['suggestion'] as String?;
         _suggestionId = res['id'] as String?;
@@ -59,13 +60,13 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> {
     } catch (e) {
       setState(() => _suggestion = 'Erro: $e');
     } finally {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
   }
 
   Future<void> _feedback(String status) async {
     if (_suggestionId == null) return;
-    await _api.feedback(_suggestionId!, status);
+    await widget.api.feedback(_suggestionId!, status);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(status == 'accepted' ? 'Aceita' : 'Rejeitada')),
@@ -79,9 +80,13 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> {
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          if (TwinConfig.token.isEmpty)
-            const Text('Use --dart-define=TWIN_TOKEN=... TWIN_TENANT_ID=...',
-                style: TextStyle(color: Colors.amber, fontSize: 12)),
+          if (_planSeller)
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Modo vendedor', style: TextStyle(fontSize: 14)),
+              value: _sellerMode,
+              onChanged: (v) => setState(() => _sellerMode = v),
+            ),
           TextField(
             controller: _controller,
             maxLines: 3,
@@ -95,20 +100,9 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> {
             children: [
               Expanded(
                 child: FilledButton(
-                  onPressed: _loading ? null : _generate,
-                  child: Text(_loading ? '...' : 'Sugerir resposta'),
+                  onPressed: _loading || _twinId == null ? null : _generate,
+                  child: Text(_loading ? 'Gerando…' : 'Sugerir resposta'),
                 ),
-              ),
-              const SizedBox(width: 8),
-              IconButton(
-                onPressed: _suggestionId == null ? null : () => _feedback('accepted'),
-                icon: const Icon(Icons.check, color: Colors.greenAccent),
-                tooltip: 'Aprovar',
-              ),
-              IconButton(
-                onPressed: _suggestionId == null ? null : () => _feedback('rejected'),
-                icon: const Icon(Icons.close, color: Colors.redAccent),
-                tooltip: 'Rejeitar',
               ),
             ],
           ),
@@ -117,7 +111,34 @@ class _SuggestionsScreenState extends State<SuggestionsScreen> {
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
-                child: Text(_suggestion!),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(_suggestion!),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        TextButton(
+                          onPressed: () {
+                            Clipboard.setData(ClipboardData(text: _suggestion!));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Copiado')),
+                            );
+                          },
+                          child: const Text('Copiar'),
+                        ),
+                        TextButton(
+                          onPressed: _suggestionId == null ? null : () => _feedback('accepted'),
+                          child: const Text('Aceitar'),
+                        ),
+                        TextButton(
+                          onPressed: _suggestionId == null ? null : () => _feedback('rejected'),
+                          child: const Text('Rejeitar'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ],

@@ -6,11 +6,37 @@ use Illuminate\Support\Facades\Http;
 
 class AiEngineClient
 {
-    public function suggest(array $payload): array
+  public function suggest(array $payload): array
     {
+        if (isset($payload['confidence_threshold'])) {
+            $payload['confidence_threshold'] = (float) $payload['confidence_threshold'];
+        }
+
         $response = Http::withHeaders($this->headers())
             ->timeout(120)
             ->post($this->baseUrl().'/ai/respond/suggest', $payload);
+
+        $response->throw();
+
+        return $response->json();
+    }
+
+    public function explain(array $payload): array
+    {
+        $response = Http::withHeaders($this->headers())
+            ->timeout(60)
+            ->post($this->baseUrl().'/ai/respond/explain', $payload);
+
+        $response->throw();
+
+        return $response->json();
+    }
+
+    public function compareDna(array $payload): array
+    {
+        $response = Http::withHeaders($this->headers())
+            ->timeout(60)
+            ->post($this->baseUrl().'/ai/dna/compare', $payload);
 
         $response->throw();
 
@@ -56,6 +82,39 @@ class AiEngineClient
         Http::withHeaders($this->headers())
             ->delete($this->baseUrl().'/ai/tenant/purge', $payload)
             ->throw();
+    }
+
+    public function syncPlaybooks(array $payload): array
+    {
+        $response = Http::withHeaders($this->headers())
+            ->timeout(60)
+            ->post($this->baseUrl().'/ai/playbooks/sync', $payload);
+
+        $response->throw();
+
+        return $response->json();
+    }
+
+    public function syncFeedback(array $payload): array
+    {
+        $response = Http::withHeaders($this->headers())
+            ->timeout(60)
+            ->post($this->baseUrl().'/ai/feedback/sync', $payload);
+
+        $response->throw();
+
+        return $response->json();
+    }
+
+    public function computeSimilarity(array $payload): array
+    {
+        $response = Http::withHeaders($this->headers())
+            ->timeout(30)
+            ->post($this->baseUrl().'/ai/respond/similarity', $payload);
+
+        $response->throw();
+
+        return $response->json();
     }
 
     private function baseUrl(): string

@@ -1,6 +1,6 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { TwinSelect } from "@/components/TwinSelect";
@@ -52,6 +52,7 @@ function resolveChannel(param: string | null): ImportChannelId {
 }
 
 export default function ImportPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { user, organization, loading: authLoading } = useAuth();
   const twinFromUrl = searchParams.get("twin") ?? "";
@@ -193,8 +194,11 @@ export default function ImportPage() {
 
       if (status === "completed") {
         setProgress(
-          `Importação concluída${total > 0 ? `: ${total} mensagens processadas` : ""}.`
+          `Importação concluída${total > 0 ? `: ${total} mensagens processadas` : ""}. DNA sendo extraído…`
         );
+        window.setTimeout(() => {
+          router.push(`/onboarding/dna-ready?twin=${twinId}`);
+        }, 2500);
       } else if (status === "failed") {
         const detail = await twinApi.importStatus(batch.id);
         const metaError =

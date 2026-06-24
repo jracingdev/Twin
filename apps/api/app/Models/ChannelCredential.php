@@ -16,12 +16,16 @@ class ChannelCredential extends Model
         return config('tenancy.database.central_connection');
     }
 
+    public const REPLY_MODES = ['assistant', 'copilot', 'auto'];
+
     protected $fillable = [
-        'organization_id', 'twin_id', 'channel', 'credentials', 'webhook_token', 'is_active',
+        'organization_id', 'twin_id', 'channel', 'credentials', 'webhook_token',
+        'is_active', 'reply_mode', 'confidence_threshold',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'confidence_threshold' => 'float',
     ];
 
     protected static function boot(): void
@@ -48,5 +52,27 @@ class ChannelCredential extends Model
     public static function findByToken(string $token): ?self
     {
         return self::where('webhook_token', $token)->where('is_active', true)->first();
+    }
+
+    public static function normalizeReplyMode(?string $mode): string
+    {
+        $mode = $mode ?? 'copilot';
+
+        return match ($mode) {
+            'approval' => 'copilot',
+            default => $mode,
+        };
+    }
+
+    public function resolveConfidenceThreshold(): float
+    {
+        if ($this->confidence_threshold !== null) {
+            return (float) $this->confidence_threshold;
+        }
+
+        $org = $this->organization;
+        $orgThreshold = $org?->data['confidence_threshold'] ?? null;
+
+        return $orgThreshold !== null ? (float) $orgThreshold : 0.75;
     }
 }

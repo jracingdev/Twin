@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\ProcessDataDeletionRequestJob;
 use App\Jobs\ProcessExportRequestJob;
 use App\Models\DataDeletionRequest;
 use App\Models\ExportRequest;
@@ -100,6 +101,8 @@ class LgpdController extends Controller
             'status' => 'pending',
             'reason' => $data['reason'] ?? null,
         ]);
+
+        ProcessDataDeletionRequestJob::dispatch($deletion->id);
 
         return response()->json([
             'id' => $deletion->id,

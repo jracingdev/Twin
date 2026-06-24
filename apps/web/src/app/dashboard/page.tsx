@@ -10,6 +10,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { TrainPanel } from "@/components/TrainPanel";
+import { SimilarityBreakdown } from "@/components/SimilarityBreakdown";
 import { TwinSelect } from "@/components/TwinSelect";
 import { twinApi, type TwinStats } from "@/lib/api";
 
@@ -59,13 +60,25 @@ export default function DashboardPage() {
       {stats && !loading && (
         <>
           <div className="grid gap-6 md:grid-cols-3">
-            <div className="glass p-6 shadow-glow">
+            <div className="glass p-6 shadow-glow md:col-span-1">
               <p className="text-sm text-twin-muted">Similaridade humana</p>
               <p className="text-4xl font-bold text-twin-cyan">
                 {stats.similarity_score != null
                   ? `${stats.similarity_score}%`
                   : "—"}
               </p>
+              {stats.similarity_baseline ? (
+                <div className="mt-4 border-t border-twin-cyan/10 pt-4">
+                  <p className="mb-3 text-xs font-medium uppercase tracking-wide text-twin-muted">
+                    Por dimensão
+                  </p>
+                  <SimilarityBreakdown baseline={stats.similarity_baseline} />
+                </div>
+              ) : stats.similarity_score == null ? (
+                <p className="mt-2 text-xs text-twin-muted">
+                  Importe conversas e extraia o DNA para calcular similaridade.
+                </p>
+              ) : null}
             </div>
             <div className="glass p-6">
               <p className="text-sm text-twin-muted">Mensagens indexadas</p>

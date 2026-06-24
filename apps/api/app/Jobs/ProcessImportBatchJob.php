@@ -52,7 +52,7 @@ class ProcessImportBatchJob implements ShouldQueue
                 $persister->persist($batch->twin_id, $persistChannel, $result['messages']);
             }
 
-            if ($batch->fresh()->status !== 'completed') {
+            if ($batch->status !== 'completed') {
                 $batch->update([
                     'status' => 'completed',
                     'total_messages' => $result['total_messages'] ?? 0,
@@ -65,7 +65,7 @@ class ProcessImportBatchJob implements ShouldQueue
 
                 ExtractDnaJob::dispatch($batch->twin_id);
 
-                $webhooks->dispatch('import.completed', [
+                $webhooks->dispatchForTenant('import.completed', [
                     'batch_id' => $batch->id,
                     'twin_id' => $batch->twin_id,
                     'total_messages' => $batch->total_messages,

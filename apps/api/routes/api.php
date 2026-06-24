@@ -22,6 +22,8 @@ use App\Http\Controllers\Api\V1\LgpdController;
 
 use App\Http\Controllers\Api\V1\PlaybookController;
 
+use App\Http\Controllers\Api\V1\SuggestionController;
+
 use App\Http\Controllers\Api\V1\SuggestController;
 
 use App\Http\Controllers\Api\V1\TimelineController;
@@ -39,6 +41,14 @@ use App\Http\Controllers\Api\V1\WebhookSettingsController;
 use App\Http\Controllers\Internal\InternalJobCallbackController;
 
 use App\Http\Controllers\Api\V1\ChannelCredentialController;
+
+use App\Http\Controllers\Api\V1\ChannelMetricsController;
+
+use App\Http\Controllers\Api\V1\MemoryEntityController;
+
+use App\Http\Controllers\Api\V1\TwinReplayController;
+
+use App\Http\Controllers\Api\V1\TwinTrainController;
 
 use App\Http\Controllers\Webhooks\ChannelWebhookController;
 
@@ -128,9 +138,13 @@ Route::prefix('v1')->group(function () {
 
         Route::get('twins/{twin}/stats', [TwinController::class, 'stats']);
 
+        Route::get('twins/{twin}/dna/evolution', [TwinController::class, 'dnaEvolution']);
+
         Route::get('twins/{twin}/imports', [TwinController::class, 'imports']);
 
         Route::get('twins/{twin}/playbooks', [TwinController::class, 'playbooks']);
+
+        Route::post('twins/{twin}/playbooks/resync', [PlaybookController::class, 'resync']);
 
         Route::post('twins/{twin}/playbooks', [PlaybookController::class, 'store']);
 
@@ -139,6 +153,16 @@ Route::prefix('v1')->group(function () {
         Route::delete('twins/{twin}/playbooks/{playbook}', [PlaybookController::class, 'destroy']);
 
         Route::post('twins/{twin}/purge', [TwinController::class, 'purge'])->name('twins.purge');
+
+        Route::get('twins/{twin}/memory-entities', [MemoryEntityController::class, 'index']);
+        Route::post('twins/{twin}/memory-entities', [MemoryEntityController::class, 'store']);
+        Route::get('twins/{twin}/memory-edges', [MemoryEntityController::class, 'indexEdges']);
+        Route::post('twins/{twin}/memory-edges', [MemoryEntityController::class, 'storeEdge']);
+
+        Route::post('twins/{twin}/train', [TwinTrainController::class, 'train']);
+        Route::get('twins/{twin}/training-status', [TwinTrainController::class, 'status']);
+
+        Route::post('twins/{twin}/replay', [TwinReplayController::class, 'replay']);
 
         Route::apiResource('twins', TwinController::class);
 
@@ -156,6 +180,16 @@ Route::prefix('v1')->group(function () {
 
 
         Route::post('suggest', [SuggestController::class, 'store']);
+
+        Route::get('suggestions', [SuggestionController::class, 'index']);
+
+        Route::get('suggestions/metrics', [SuggestionController::class, 'metrics']);
+
+        Route::get('channel-metrics', [ChannelMetricsController::class, 'index']);
+
+        Route::get('suggestions/{suggestion}/explain', [SuggestionController::class, 'explain']);
+
+        Route::post('suggestions/{suggestion}/send', [SuggestionController::class, 'send']);
 
         Route::patch('suggestions/{suggestion}', [SuggestController::class, 'feedback']);
 
@@ -176,6 +210,10 @@ Route::prefix('v1')->group(function () {
         Route::delete('api-keys/{apiKey}', [ApiKeyController::class, 'destroy']);
 
 
+
+        Route::get('plan', fn (\App\Services\PlanFeaturesService $plans) => response()->json(
+            $plans->planSummary(tenant('id'))
+        ));
 
         Route::get('channel-credentials', [ChannelCredentialController::class, 'index']);
 

@@ -40,21 +40,22 @@ def process_ingest_batch(
     records = []
     db_messages = []
     for i, m in enumerate(messages):
-        if m.role != "user":
-            continue
         body = m.body[:8000]
         msg_channel = m.channel or source
-        records.append({
-            "_id": f"{batch_id}_{i}",
-            "chunk_text": body,
-            "message_id": f"{batch_id}_{i}",
-            "role": m.role,
-            "contact_id": m.contact or "unknown",
-            "source": msg_channel,
-            "channel": msg_channel,
-            "is_user_message": True,
-        })
-        if len(db_messages) < 500:
+
+        if m.role == "user":
+            records.append({
+                "_id": f"{batch_id}_{i}",
+                "chunk_text": body,
+                "message_id": f"{batch_id}_{i}",
+                "role": m.role,
+                "contact_id": m.contact or "unknown",
+                "source": msg_channel,
+                "channel": msg_channel,
+                "is_user_message": True,
+            })
+
+        if len(db_messages) < 2000:
             db_messages.append({
                 "role": m.role,
                 "body": body,

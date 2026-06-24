@@ -12,6 +12,8 @@ class ChannelCredentialController extends Controller
 {
     private const CHANNELS = ['whatsapp', 'telegram', 'slack', 'discord'];
 
+    private const REPLY_MODE_INPUT = 'assistant,copilot,approval,auto';
+
     public function index(): JsonResponse
     {
         $credentials = ChannelCredential::where('organization_id', tenant('id'))
@@ -27,6 +29,8 @@ class ChannelCredentialController extends Controller
             'twin_id' => 'required|uuid',
             'channel' => ['required', Rule::in(self::CHANNELS)],
             'credentials' => 'required|array',
+            'reply_mode' => 'nullable|in:'.self::REPLY_MODE_INPUT,
+            'confidence_threshold' => 'nullable|numeric|min:0|max:1',
         ]);
 
         $this->validateChannelCredentials($data['channel'], $data['credentials']);
@@ -36,6 +40,8 @@ class ChannelCredentialController extends Controller
             'twin_id' => $data['twin_id'],
             'channel' => $data['channel'],
             'credentials' => encrypt(json_encode($data['credentials'])),
+            'reply_mode' => ChannelCredential::normalizeReplyMode($data['reply_mode'] ?? null),
+            'confidence_threshold' => $data['confidence_threshold'] ?? null,
         ]);
 
         return response()->json($this->format($credential), 201);
@@ -48,11 +54,17 @@ class ChannelCredentialController extends Controller
         $data = $request->validate([
             'credentials' => 'sometimes|array',
             'is_active' => 'sometimes|boolean',
+            'reply_mode' => 'sometimes|in:'.self::REPLY_MODE_INPUT,
+            'confidence_threshold' => 'nullable|numeric|min:0|max:1',
         ]);
 
         if (isset($data['credentials'])) {
             $this->validateChannelCredentials($channelCredential->channel, $data['credentials']);
             $data['credentials'] = encrypt(json_encode($data['credentials']));
+        }
+
+        if (array_key_exists('reply_mode', $data)) {
+            $data['reply_mode'] = ChannelCredential::normalizeReplyMode($data['reply_mode']);
         }
 
         $channelCredential->update($data);
@@ -75,7 +87,9 @@ class ChannelCredentialController extends Controller
             'twin_id' => $c->twin_id,
             'channel' => $c->channel,
             'is_active' => $c->is_active,
-            'webhook_token' => $c->webhook_token,
+            'reply_mode' => $c->reply_mode ?? 'copilot',
+            'confidence_threshold' => $c->confidence_threshold ?? 0.75,
+            'webhook_token' => $this->maskToken($c->webhook_token),
             'webhook_url' => url("/api/webhooks/channel/{$c->channel}/{$c->webhook_token}"),
             'created_at' => $c->created_at,
         ];
@@ -86,6 +100,15 @@ class ChannelCredentialController extends Controller
         if ($credential->organization_id !== tenant('id')) {
             abort(403);
         }
+    }
+
+    private function maskToken(?string $token): ?string
+    {
+        if (! $token || strlen($token) < 8) {
+            return $token ? '****' : null;
+        }
+
+        return substr($token, 0, 4).'…'.substr($token, -4);
     }
 
     private function validateChannelCredentials(string $channel, array $creds): void
@@ -100,7 +123,7 @@ class ChannelCredentialController extends Controller
         $missing = array_diff($required, array_keys($creds));
 
         if (! empty($missing)) {
-            abort(422, 'Missing credentials fields: ' . implode(', ', $missing));
+            abort(422, 'Missing credentials fields: '.implode(', ', $missing));
         }
     }
 }

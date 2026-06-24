@@ -7,6 +7,7 @@ use App\Jobs\ProcessImportBatchJob;
 use App\Models\ConsentRecord;
 use App\Models\ImportBatch;
 use App\Services\ImportZipExtractor;
+use App\Services\PlanFeaturesService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -17,7 +18,7 @@ class ImportController extends Controller
 
     private const CHANNELS = 'whatsapp,telegram,instagram,facebook,messenger';
 
-    public function store(Request $request, ImportZipExtractor $zipExtractor): JsonResponse
+    public function store(Request $request, ImportZipExtractor $zipExtractor, PlanFeaturesService $plans): JsonResponse
     {
         $data = $request->validate([
             'twin_id' => 'required|uuid|exists:twins,id',
@@ -27,7 +28,19 @@ class ImportController extends Controller
             'file' => 'required|file|max:512000',
         ]);
 
-        ConsentRecord::findOrFail($data['consent_id']);
+        $consent = ConsentRecord::findOrFail($data['consent_id']);
+        if ($consent->organization_id !== tenant('id')) {
+            return response()->json([
+                'message' => 'Consentimento não pertence a esta organização.',
+            ], 403);
+        }
+
+        if (! $plans->canImport(tenant('id'))) {
+            return response()->json([
+                'message' => 'Limite mensal de mensagens atingido para o seu plano.',
+                'code' => 'plan_messages_limit',
+            ], 403);
+        }
 
         $file = $request->file('file');
         $hash = hash_file('sha256', $file->getRealPath());

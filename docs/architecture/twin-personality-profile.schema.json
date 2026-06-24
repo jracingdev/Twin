@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://twin.local/schemas/personality-profile/v2.json",
+  "title": "Twin Personality Profile",
+  "description": "Perfil comportamental permanente do gêmeo digital — contexto para RAG e LLM",
+  "type": "object",
+  "required": ["version", "identity", "communication", "behavior", "commercial"],
+  "properties": {
+    "version": { "type": "string", "const": "2.0.0" },
+    "extracted_at": { "type": "string", "format": "date-time" },
+    "identity": {
+      "type": "object",
+      "properties": {
+        "nome_referencia": { "type": "string" },
+        "vertical": { "type": "string" },
+        "role": { "type": "string", "enum": ["vendedor", "suporte", "tecnico", "geral"] }
+      }
+    },
+    "communication": {
+      "type": "object",
+      "properties": {
+        "estilo_comunicacao": { "type": "string" },
+        "nivel_formalidade": { "type": "number", "minimum": 0, "maximum": 1 },
+        "vocabulario_frequente": { "type": "array", "items": { "type": "string" } },
+        "girias": { "type": "array", "items": { "type": "string" } },
+        "frases_frequentes": { "type": "array", "items": { "type": "string" } },
+        "padroes_saudacao": { "type": "array", "items": { "type": "string" } },
+        "padroes_encerramento": { "type": "array", "items": { "type": "string" } },
+        "comprimento_medio_mensagem": { "type": "integer" },
+        "taxa_emojis": { "type": "number" },
+        "uso_abreviacoes": { "type": "number" }
+      }
+    },
+    "behavior": {
+      "type": "object",
+      "properties": {
+        "como_inicia_conversas": { "type": "array", "items": { "type": "string" } },
+        "como_encerra_conversas": { "type": "array", "items": { "type": "string" } },
+        "resposta_duvidas": { "type": "string" },
+        "resposta_reclamacoes": { "type": "string" },
+        "tempo_medio_resposta_minutos": { "type": "number" },
+        "horarios_ativos": { "type": "array", "items": { "type": "integer" } }
+      }
+    },
+    "psychological_estimate": {
+      "type": "object",
+      "description": "Estimativas heurísticas/LLM — não diagnóstico clínico",
+      "properties": {
+        "extroversao": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "assertividade": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "empatia": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "formalidade": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "dominancia": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "cordialidade": { "type": "integer", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "commercial": {
+      "type": "object",
+      "properties": {
+        "perfil_vendas": { "type": "string" },
+        "perfil_emocional": { "type": "string" },
+        "gatilhos_persuasao": { "type": "array", "items": { "type": "string" } },
+        "objecoes_comuns": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "tipo": { "type": "string" },
+              "exemplo": { "type": "string" },
+              "resposta_tipica": { "type": "string" }
+            }
+          }
+        },
+        "estrategia_negociacao": { "type": "string" },
+        "estilo_follow_up": { "type": "string" }
+      }
+    },
+    "radar": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "trait": { "type": "string" },
+          "value": { "type": "integer", "minimum": 0, "maximum": 100 }
+        }
+      }
+    },
+    "similarity_baseline": {
+      "type": "object",
+      "description": "Scores calculados contra corpus de treino",
+      "properties": {
+        "formalidade": { "type": "number" },
+        "tom_emocional": { "type": "number" },
+        "vocabulario": { "type": "number" },
+        "persuasao": { "type": "number" },
+        "geral": { "type": "number" }
+      }
+    },
+    "intensity_presets": { "type": "object" }
+  }
+}

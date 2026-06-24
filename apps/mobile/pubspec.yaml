@@ -12,6 +12,7 @@ dependencies:
   http: ^1.2.2
   file_picker: ^8.1.4
   flutter_local_notifications: ^18.0.1
+  shared_preferences: ^2.3.3
 
 dev_dependencies:
   flutter_test:

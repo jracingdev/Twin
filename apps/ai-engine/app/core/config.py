@@ -6,6 +6,7 @@ class Settings(BaseSettings):
     pinecone_api_key: str = ""
     pinecone_index: str = "twin-integrated"
     openai_api_key: str = ""
+    llm_provider: str = "openai"
     ai_engine_secret: str = "change-me-internal-secret"
     laravel_api_url: str = "http://127.0.0.1:8080"
     embed_model: str = "multilingual-e5-large"

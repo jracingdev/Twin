@@ -20,6 +20,12 @@ class ChannelGatewayService
         array $normalized,
         string $organizationId
     ): void {
+        $platformMessageId = $normalized['platform_meta']['message_id'] ?? null;
+
+        if ($platformMessageId && $this->isDuplicatePlatformMessage($twinId, $platformMessageId)) {
+            return;
+        }
+
         $contact = Contact::firstOrCreate(
             ['channel' => $channel, 'external_id' => $normalized['external_id']],
             ['display_name' => $normalized['display_name']]
@@ -50,5 +56,12 @@ class ChannelGatewayService
             $organizationId,
             $normalized['platform_meta']
         )->onQueue('channel');
+    }
+
+    private function isDuplicatePlatformMessage(string $twinId, string $platformMessageId): bool
+    {
+        return Message::where('twin_id', $twinId)
+            ->where('metadata->platform_meta->message_id', $platformMessageId)
+            ->exists();
     }
 }

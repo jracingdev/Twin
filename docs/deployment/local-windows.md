@@ -29,7 +29,9 @@ DB_PASSWORD=sua_senha
 
 ## 2. Banco de dados
 
-No MySQL (Laragon: Menu → MySQL → HeidiSQL ou terminal):
+**MySQL no servidor remoto:** veja [mysql-server.md](./mysql-server.md) (scripts em `scripts/mysql/`).
+
+No MySQL local (Laragon: Menu → MySQL → HeidiSQL ou terminal):
 
 ```sql
 CREATE DATABASE twin_landlord CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

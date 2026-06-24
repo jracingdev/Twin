@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Stancl\Tenancy\Database\Concerns\TenantConnection;
 
 class ResponseSuggestion extends Model
@@ -16,4 +17,14 @@ class ResponseSuggestion extends Model
     ];
 
     protected $casts = ['metadata' => 'array'];
+
+    public function contact(): BelongsTo
+    {
+        return $this->belongsTo(Contact::class);
+    }
+
+    public function twin(): BelongsTo
+    {
+        return $this->belongsTo(Twin::class);
+    }
 }
