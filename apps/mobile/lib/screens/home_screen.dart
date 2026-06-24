@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import '../services/auth_storage.dart';
 import '../services/twin_api.dart';
 import 'dashboard_screen.dart';
 import 'inbox_screen.dart';
@@ -92,6 +93,30 @@ class _ImportTab extends StatefulWidget {
 class _ImportTabState extends State<_ImportTab> {
   bool _uploading = false;
   String _status = '';
+  final _storage = AuthStorage();
+
+  Future<bool> _showConsentDialog() async {
+    final accepted = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Consentimento LGPD'),
+        content: Text(
+          'Ao importar conversas exportadas, você autoriza o processamento dos dados '
+          'exclusivamente para treinar seu gêmeo digital TWIN (versão $consentVersion).\n\n'
+          '• Dados isolados por organização\n'
+          '• Exclusão total disponível a qualquer momento\n'
+          '• Apenas exportações oficiais dos apps',
+          style: TextStyle(color: Colors.grey.shade300, fontSize: 14),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Aceito')),
+        ],
+      ),
+    );
+    return accepted ?? false;
+  }
 
   Future<void> _pickAndUpload() async {
     if (widget.twinId == null) {
@@ -116,8 +141,11 @@ class _ImportTabState extends State<_ImportTab> {
     });
 
     try {
-      final consent = await widget.api.latestConsent();
-      final consentId = consent['id']?.toString() ?? '1';
+      final consentId = await widget.api.resolveConsentId(
+        getStored: _storage.getConsentId,
+        store: _storage.setConsentId,
+        promptAccept: _showConsentDialog,
+      );
       final batch = await widget.api.uploadImport(
         twinId: widget.twinId!,
         consentId: consentId,

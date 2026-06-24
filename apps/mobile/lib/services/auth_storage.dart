@@ -4,6 +4,7 @@ class AuthStorage {
   static const _tokenKey = 'twin_token';
   static const _tenantKey = 'twin_tenant_id';
   static const _emailKey = 'twin_email';
+  static const _consentIdKey = 'twin_consent_id';
 
   Future<void> saveSession({
     required String token,
@@ -35,5 +36,16 @@ class AuthStorage {
     await prefs.remove(_tokenKey);
     await prefs.remove(_tenantKey);
     await prefs.remove(_emailKey);
+    await prefs.remove(_consentIdKey);
+  }
+
+  Future<String?> getConsentId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_consentIdKey);
+  }
+
+  Future<void> setConsentId(String id) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_consentIdKey, id);
   }
 }

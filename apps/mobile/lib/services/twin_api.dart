@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../config.dart';
 
+const consentVersion = '1.0.0';
+
 class TwinApi {
   TwinApi({
     String? baseUrl,
@@ -120,6 +122,50 @@ class TwinApi {
     final res = await http.get(Uri.parse('$baseUrl/consent/latest?type=import'), headers: _headers);
     if (res.statusCode >= 400) throw Exception(_parseError(res));
     return jsonDecode(res.body) as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> createConsent({String type = 'import'}) async {
+    final res = await http.post(
+      Uri.parse('$baseUrl/consent'),
+      headers: _headers,
+      body: jsonEncode({'type': type, 'text_version': consentVersion}),
+    );
+    if (res.statusCode >= 400) throw Exception(_parseError(res));
+    return jsonDecode(res.body) as Map<String, dynamic>;
+  }
+
+  /// Retorna o ID de consentimento armazenado, busca o último na API ou cria um novo após aceite.
+  Future<String> resolveConsentId({
+    required Future<String?> Function() getStored,
+    required Future<void> Function(String id) store,
+    required Future<bool> Function() promptAccept,
+  }) async {
+    final stored = await getStored();
+    if (stored != null && stored.isNotEmpty) return stored;
+
+    try {
+      final latest = await latestConsent();
+      final id = latest['id']?.toString();
+      if (id != null && id.isNotEmpty) {
+        await store(id);
+        return id;
+      }
+    } catch (_) {
+      // Sem consentimento registrado — solicitar aceite
+    }
+
+    final accepted = await promptAccept();
+    if (!accepted) {
+      throw Exception('Consentimento LGPD necessário para importar conversas.');
+    }
+
+    final created = await createConsent();
+    final id = created['id']?.toString();
+    if (id == null || id.isEmpty) {
+      throw Exception('Falha ao registrar consentimento.');
+    }
+    await store(id);
+    return id;
   }
 
   Future<Map<String, dynamic>> uploadImport({

@@ -117,6 +117,28 @@ class AiEngineClient
         return $response->json();
     }
 
+    public function batchTrain(array $payload): array
+    {
+        $response = Http::withHeaders($this->headers())
+            ->timeout(300)
+            ->post($this->baseUrl().'/ai/train/batch', $payload);
+
+        $response->throw();
+
+        return $response->json();
+    }
+
+    public function replaySimulate(array $payload): array
+    {
+        $response = Http::withHeaders($this->headers())
+            ->timeout(120)
+            ->post($this->baseUrl().'/ai/replay/simulate', $payload);
+
+        $response->throw();
+
+        return $response->json();
+    }
+
     private function baseUrl(): string
     {
         return rtrim(config('services.ai_engine.url'), '/');

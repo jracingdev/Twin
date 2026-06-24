@@ -40,19 +40,18 @@ class TwinReplayController extends Controller
         $payload = [
             'tenant_id' => tenant('id'),
             'twin_id' => $twin->id,
-            'text' => $data['input_text'],
+            'input' => $data['input_text'],
             'contact_id' => $data['contact_id'] ?? null,
             'intensity' => $intensity,
             'seller_mode' => $sellerMode,
             'dna' => $twin->activeDna?->payload,
-            'replay' => true,
         ];
 
         if (isset($data['confidence_threshold'])) {
             $payload['confidence_threshold'] = (float) $data['confidence_threshold'];
         }
 
-        $result = $this->ai->suggest($payload);
+        $result = $this->ai->replaySimulate($payload);
 
         $scoreBreakdown = $result['score_breakdown']
             ?? $result['similarity']

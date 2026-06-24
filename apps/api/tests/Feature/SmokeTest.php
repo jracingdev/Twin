@@ -98,4 +98,14 @@ class SmokeTest extends TestCase
         $this->assertTrue($uris->contains('api/v1/twins/{twin}/training-status'));
         $this->assertTrue($uris->contains('api/v1/twins/{twin}/replay'));
     }
+
+    public function test_ai_engine_client_exposes_train_and_replay_proxies(): void
+    {
+        $client = new \App\Services\AiEngineClient();
+
+        $this->assertTrue(method_exists($client, 'batchTrain'));
+        $this->assertTrue(method_exists($client, 'replaySimulate'));
+        $this->assertTrue(method_exists($client, 'syncFeedback'));
+        $this->assertTrue(method_exists($client, 'computeSimilarity'));
+    }
 }
