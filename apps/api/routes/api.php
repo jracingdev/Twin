@@ -74,9 +74,8 @@ Route::prefix('v1')->group(function () {
 
     Route::post('reset-password', [AuthController::class, 'resetPassword']);
 
-
-
-    Route::middleware(['auth:sanctum', 'tenant', 'tenant.provisioned'])->group(function () {
+    // Sessão do usuário — landlord only; /me descobre a org (não exige X-Tenant ainda)
+    Route::middleware(['auth:sanctum'])->group(function () {
 
         Route::post('logout', [AuthController::class, 'logout']);
 
@@ -86,8 +85,6 @@ Route::prefix('v1')->group(function () {
 
         Route::post('organizations/switch', [AuthController::class, 'switchOrganization']);
 
-
-
         Route::get('two-factor/status', [TwoFactorController::class, 'status']);
 
         Route::post('two-factor/enable', [TwoFactorController::class, 'enable']);
@@ -96,7 +93,9 @@ Route::prefix('v1')->group(function () {
 
         Route::delete('two-factor', [TwoFactorController::class, 'disable']);
 
+    });
 
+    Route::middleware(['auth:sanctum', 'tenant', 'tenant.provisioned'])->group(function () {
 
         Route::get('billing/subscription', [BillingController::class, 'subscription']);
 
