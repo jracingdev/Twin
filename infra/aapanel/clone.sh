@@ -4,11 +4,27 @@
 #   chmod +x infra/aapanel/clone.sh
 #   ./infra/aapanel/clone.sh
 #   TARGET_DIR=/caminho/custom ./infra/aapanel/clone.sh
+#
+# Repositório privado (GitHub não aceita senha da conta):
+#   export GITHUB_TOKEN='ghp_...'   # PAT classic, escopo repo — NUNCA commite
+#   ./infra/aapanel/clone.sh
+# Ou com GIT_ASKPASS (token não embutido na URL do git):
+#   export GITHUB_TOKEN='ghp_...'
+#   export GIT_ASKPASS="$(mktemp)" && printf '#!/bin/sh\necho "$GITHUB_TOKEN"\n' > "$GIT_ASKPASS" && chmod 700 "$GIT_ASKPASS"
+#   export GIT_TERMINAL_PROMPT=0 && ./infra/aapanel/clone.sh
+#   rm -f "$GIT_ASKPASS"
+# SSH: REPO_URL=git@github.com:jracingdev/Twin.git ./infra/aapanel/clone.sh
+# Doc: docs/deployment/aapanel.md — "Clonar repositório (HTTPS com PAT ou SSH)"
 set -euo pipefail
 
 TARGET_DIR="${TARGET_DIR:-/www/wwwroot/twin.app.br}"
 REPO_URL="${REPO_URL:-https://github.com/jracingdev/Twin.git}"
 BRANCH="${BRANCH:-main}"
+
+# PAT via HTTPS — injeta token na URL só nesta sessão (não persiste no repo)
+if [[ -n "${GITHUB_TOKEN:-}" && "${REPO_URL}" == https://github.com/* ]]; then
+  REPO_URL="https://${GITHUB_TOKEN}@github.com/${REPO_URL#https://github.com/}"
+fi
 
 log() { echo "[twin-clone] $*"; }
 die() { echo "[twin-clone] ERRO: $*" >&2; exit 1; }
@@ -74,6 +90,7 @@ Se houver conflito com arquivos locais:
   git checkout -f ${BRANCH}
 
 Documentação: docs/deployment/aapanel.md — "Site criado no aaPanel sem Git"
+Repo privado: docs/deployment/aapanel.md — "Clonar repositório (HTTPS com PAT ou SSH)"
 EOF
 }
 

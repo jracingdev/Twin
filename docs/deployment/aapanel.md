@@ -86,6 +86,111 @@ Ou use o script: `chmod +x infra/aapanel/clone.sh && ./infra/aapanel/clone.sh`
 
 **Branch recomendada:** `main` em produção. Use tags ou branch `release/*` se sua equipe adotar releases nomeadas.
 
+> Repositório **privado**? O GitHub não aceita senha da conta em `git clone` HTTPS. Veja [Clonar repositório (HTTPS com PAT ou SSH)](#clonar-repositório-https-com-pat-ou-ssh).
+
+---
+
+## Clonar repositório (HTTPS com PAT ou SSH)
+
+Se o clone falhar com:
+
+```text
+Password authentication is not supported for Git operations.
+fatal: Authentication failed for https://github.com/jracingdev/Twin.git/
+```
+
+o repositório é **privado** (ou o token expirou). O GitHub exige **Personal Access Token (PAT)** no HTTPS ou **chave SSH** (deploy key).
+
+**Nunca** commite tokens, PATs ou chaves privadas no repositório. Use variáveis de ambiente só na sessão SSH do servidor.
+
+### Restaurar backup após clone falho
+
+Se o clone moveu a pasta antiga para backup (ex.: `twin.app.br.bak` existe e `twin.app.br` não):
+
+```bash
+sudo mv /www/wwwroot/twin.app.br.bak /www/wwwroot/twin.app.br
+```
+
+Depois escolha uma opção de autenticação abaixo e repita o clone (ou use `infra/aapanel/clone.sh` com `GITHUB_TOKEN`).
+
+### Opção A — HTTPS com Personal Access Token (recomendada)
+
+1. No GitHub: **Settings → Developer settings → Personal access tokens → Tokens (classic)** → **Generate new token (classic)**.
+2. Marque o escopo **`repo`** (acesso a repositórios privados).
+3. Copie o token **uma vez** (não será exibido de novo).
+
+Formato da URL de clone (substitua `SEU_TOKEN` pelo PAT):
+
+```text
+https://SEU_TOKEN@github.com/jracingdev/Twin.git
+```
+
+No servidor (sessão única — não grave o token em arquivo versionado):
+
+```bash
+export GITHUB_TOKEN='SEU_TOKEN'   # ou cole direto na URL abaixo
+sudo mkdir -p /www/wwwroot
+sudo rm -rf /www/wwwroot/twin.app.br   # só se a pasta estiver vazia ou for refazer o clone
+sudo git clone "https://${GITHUB_TOKEN}@github.com/jracingdev/Twin.git" /www/wwwroot/twin.app.br
+cd /www/wwwroot/twin.app.br
+git checkout main
+sudo chown -R www:www /www/wwwroot/twin.app.br
+unset GITHUB_TOKEN
+```
+
+Alternativa com `GIT_ASKPASS` (o token não aparece na URL do processo `git`):
+
+```bash
+export GITHUB_TOKEN='SEU_TOKEN'
+export GIT_ASKPASS="$(mktemp)"
+printf '#!/bin/sh\necho "$GITHUB_TOKEN"\n' > "$GIT_ASKPASS"
+chmod 700 "$GIT_ASKPASS"
+export GIT_TERMINAL_PROMPT=0
+sudo -E git clone "https://github.com/jracingdev/Twin.git" /www/wwwroot/twin.app.br
+rm -f "$GIT_ASKPASS"
+unset GITHUB_TOKEN GIT_ASKPASS GIT_TERMINAL_PROMPT
+```
+
+Ou use o script com token em variável:
+
+```bash
+export GITHUB_TOKEN='SEU_TOKEN'
+chmod +x infra/aapanel/clone.sh
+GITHUB_TOKEN="$GITHUB_TOKEN" ./infra/aapanel/clone.sh
+unset GITHUB_TOKEN
+```
+
+Para `git pull` depois, configure o remote com o token na URL **apenas no servidor** (arquivo `.git/config` local, não commitado) ou use SSH (Opção B).
+
+### Opção B — Deploy key SSH (somente leitura)
+
+1. No servidor, como usuário que fará o clone (ex.: `root` ou `www`):
+
+```bash
+ssh-keygen -t ed25519 -C "twin-vps-deploy" -f ~/.ssh/twin_deploy -N ""
+cat ~/.ssh/twin_deploy.pub
+```
+
+2. No GitHub: repositório **Twin → Settings → Deploy keys → Add deploy key** — cole a chave pública, marque **Allow read access** (não marque write se só for deploy).
+3. Clone:
+
+```bash
+sudo mkdir -p /www/wwwroot
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/twin_deploy
+sudo GIT_SSH_COMMAND="ssh -i /root/.ssh/twin_deploy -o IdentitiesOnly=yes" \
+  git clone git@github.com:jracingdev/Twin.git /www/wwwroot/twin.app.br
+cd /www/wwwroot/twin.app.br
+git checkout main
+sudo chown -R www:www /www/wwwroot/twin.app.br
+```
+
+Ajuste o caminho da chave (`/root/.ssh/twin_deploy`) conforme o usuário SSH.
+
+### Opção C — Repositório público temporariamente
+
+Você pode tornar o repositório **público** em **Settings → Danger zone → Change visibility**, clonar com HTTPS sem token, e voltar a **privado** em seguida. **Não recomendado** em produção: expõe o código durante a janela pública. Prefira PAT ou deploy key.
+
 ---
 
 ## 2. MySQL — landlord e tenants
@@ -489,6 +594,7 @@ Agende no aaPanel → **Cron** (ex.: 03:00 diário).
 | Fila não processa | `QUEUE_CONNECTION=redis`, Redis ativo, Supervisor `twin-queue` |
 | `pdo_mysql` ausente | aaPanel → PHP → Install extensions → **reboot** |
 | CORS no login | `FRONTEND_URL=https://twin.app.br` na API |
+| `Password authentication is not supported` no `git clone` | Repo privado — use [PAT ou SSH](#clonar-repositório-https-com-pat-ou-ssh); restaure `twin.app.br.bak` se necessário |
 
 ---
 
