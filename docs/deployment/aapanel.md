@@ -600,6 +600,9 @@ Agende no aaPanel → **Cron** (ex.: 03:00 diário).
 | `pdo_mysql` ausente | aaPanel → PHP → Install extensions → **reboot** |
 | CORS no login | `FRONTEND_URL=https://twin.app.br` na API |
 | `Password authentication is not supported` no `git clone` | Repo privado — use [PAT ou SSH](#clonar-repositório-https-com-pat-ou-ssh); restaure `twin.app.br.bak` se necessário |
+| `git pull` permission denied / dubious ownership | `sudo git -c safe.directory=/www/wwwroot/twin.app.br pull` ou `git checkout -- infra/aapanel/setup.sh` antes do pull |
+| `composer` usa PHP 8.1 / Symfony exige 8.4 | Sempre: `/www/server/php/82/bin/php /usr/local/bin/composer install` |
+| `ext-fileinfo` ausente | aaPanel → PHP 8.2 → Extensions → **fileinfo** → reinicie PHP |
 
 ---
 

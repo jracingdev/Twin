@@ -101,13 +101,13 @@ chown -R www:www "$API/storage" "$API/bootstrap/cache" 2>/dev/null || true
 chmod -R ug+rwx "$API/storage" "$API/bootstrap/cache" 2>/dev/null || true
 
 # --- Composer ---
-if command -v composer &>/dev/null; then
-  COMPOSER_CMD="composer"
-else
-  COMPOSER_CMD="$PHP_BIN $(command -v composer.phar 2>/dev/null || echo '')"
+COMPOSER_BIN="${COMPOSER_BIN:-$(command -v composer 2>/dev/null || echo /usr/local/bin/composer)}"
+if [[ ! -x "$COMPOSER_BIN" && -f /usr/local/bin/composer ]]; then
+  COMPOSER_BIN=/usr/local/bin/composer
 fi
-log "composer install (API)..."
-(cd "$API" && composer install --no-dev --optimize-autoloader --no-interaction)
+[[ -f "$COMPOSER_BIN" || -x "$COMPOSER_BIN" ]] || die "Composer não encontrado. Instale: curl -sS https://getcomposer.org/installer | sudo php -- --install-dir=/usr/local/bin --filename=composer"
+log "composer install (API) via $PHP_BIN..."
+(cd "$API" && "$PHP_BIN" "$COMPOSER_BIN" install --no-dev --optimize-autoloader --no-interaction)
 
 # APP_KEY (requer vendor/ — após composer install)
 if ! grep -q '^APP_KEY=base64:' "$API/.env" 2>/dev/null; then
