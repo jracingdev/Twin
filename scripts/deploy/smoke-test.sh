@@ -89,23 +89,37 @@ info "AI:   $SMOKE_AI_URL"
 echo ""
 
 # --- Supervisor (obrigatório) ---
+supervisorctl_cmd() {
+  if [[ -n "${SUPERVISORCTL:-}" ]]; then
+    $SUPERVISORCTL "$@"
+  elif [[ "$(id -u)" -eq 0 ]]; then
+    supervisorctl "$@"
+  else
+    sudo supervisorctl "$@"
+  fi
+}
+
 if command -v supervisorctl >/dev/null 2>&1; then
-  all_status="$(supervisorctl status 2>/dev/null || true)"
-  check_supervisor() {
-    local pattern="$1" label="$2" min="${3:-1}"
-    local count
-    count="$(printf '%s\n' "$all_status" | grep -E "$pattern" | grep -c RUNNING || true)"
-    if [[ "${count:-0}" -ge "$min" ]]; then
-      pass "Supervisor $label RUNNING (${count} processo(s))"
-    else
-      fail "Supervisor $label não está RUNNING (esperado >= ${min})"
-      printf '%s\n' "$all_status" | grep -E "$pattern" | head -5 | sed 's/^/       /' || true
-    fi
-  }
-  # aaPanel usa grupo twin: — ex.: twin:twin-queue_00, twin:twin-ai-engine
-  check_supervisor '^twin:twin-queue' 'twin-queue' 1
-  check_supervisor '^twin:twin-ai-engine' 'twin-ai-engine' 1
-  check_supervisor '^twin:twin-celery' 'twin-celery' 1
+  all_status="$(supervisorctl_cmd status 2>/dev/null || true)"
+  if [[ -z "$all_status" ]]; then
+    fail "supervisorctl status vazio (tente: sudo supervisorctl status)"
+  else
+    check_supervisor() {
+      local pattern="$1" label="$2" min="${3:-1}"
+      local count
+      count="$(printf '%s\n' "$all_status" | grep -E "$pattern" | grep -c RUNNING || true)"
+      if [[ "${count:-0}" -ge "$min" ]]; then
+        pass "Supervisor $label RUNNING (${count} processo(s))"
+      else
+        fail "Supervisor $label não está RUNNING (esperado >= ${min})"
+        printf '%s\n' "$all_status" | grep -E "$pattern" | head -5 | sed 's/^/       /' || true
+      fi
+    }
+    # aaPanel usa grupo twin: — ex.: twin:twin-queue_00, twin:twin-ai-engine
+    check_supervisor '^twin:twin-queue' 'twin-queue' 1
+    check_supervisor '^twin:twin-ai-engine' 'twin-ai-engine' 1
+    check_supervisor '^twin:twin-celery' 'twin-celery' 1
+  fi
 else
   fail "supervisorctl não encontrado"
 fi
