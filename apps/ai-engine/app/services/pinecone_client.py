@@ -6,6 +6,9 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+# Limite do Pinecone para upsert_records em índices com embedding integrado
+UPSERT_BATCH_SIZE = 96
+
 _pc_index = None
 _pc_unavailable = False
 
@@ -71,8 +74,12 @@ def upsert_records(tenant_id: str, twin_id: str, kind: str, records: list[dict[s
             "Execute: pip install 'pinecone>=6.0.0' no venv do ai-engine."
         )
     ns = namespace(tenant_id, twin_id, kind)
-    index.upsert_records(namespace=ns, records=records)
-    return len(records)
+    total = 0
+    for offset in range(0, len(records), UPSERT_BATCH_SIZE):
+        batch = records[offset : offset + UPSERT_BATCH_SIZE]
+        index.upsert_records(namespace=ns, records=batch)
+        total += len(batch)
+    return total
 
 
 def search(
@@ -88,23 +95,33 @@ def search(
         return []
     ns = namespace(tenant_id, twin_id, kind)
 
-    if hasattr(index, "search"):
-        kwargs: dict[str, Any] = {
-            "namespace": ns,
-            "top_k": top_k,
+    try:
+        if hasattr(index, "search"):
+            kwargs: dict[str, Any] = {
+                "namespace": ns,
+                "top_k": top_k,
+                "inputs": {"text": query_text},
+            }
+            if filter_meta:
+                kwargs["filter"] = filter_meta
+            return _hits_from_response(index.search(**kwargs))
+
+        query: dict[str, Any] = {
             "inputs": {"text": query_text},
+            "top_k": top_k,
         }
         if filter_meta:
-            kwargs["filter"] = filter_meta
-        return _hits_from_response(index.search(**kwargs))
-
-    query: dict[str, Any] = {
-        "inputs": {"text": query_text},
-        "top_k": top_k,
-    }
-    if filter_meta:
-        query["filter"] = filter_meta
-    return _hits_from_response(index.search_records(namespace=ns, query=query))
+            query["filter"] = filter_meta
+        return _hits_from_response(index.search_records(namespace=ns, query=query))
+    except Exception as exc:
+        logger.warning(
+            "Pinecone search falhou (tenant=%s twin=%s kind=%s): %s",
+            tenant_id,
+            twin_id,
+            kind,
+            exc,
+        )
+        return []
 
 
 def delete_twin_namespaces(tenant_id: str, twin_id: str) -> None:
