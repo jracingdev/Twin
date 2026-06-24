@@ -1,19 +1,31 @@
 from typing import Any
 
+import logging
+
 from app.core.config import settings
 
+logger = logging.getLogger(__name__)
+
 _pc_index = None
+_pc_unavailable = False
 
 
 def get_index():
-    global _pc_index
+    global _pc_index, _pc_unavailable
+    if _pc_unavailable:
+        return None
     if _pc_index is None:
         if not settings.pinecone_api_key:
             return None
-        from pinecone import Pinecone
+        try:
+            from pinecone import Pinecone
 
-        pc = Pinecone(api_key=settings.pinecone_api_key)
-        _pc_index = pc.Index(settings.pinecone_index)
+            pc = Pinecone(api_key=settings.pinecone_api_key)
+            _pc_index = pc.Index(settings.pinecone_index)
+        except Exception as exc:
+            logger.warning("Pinecone indisponível (ingest continua sem indexação): %s", exc)
+            _pc_unavailable = True
+            return None
     return _pc_index
 
 

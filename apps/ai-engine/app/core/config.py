@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     ai_engine_secret: str = "change-me-internal-secret"
     laravel_api_url: str = "http://127.0.0.1:8080"
     embed_model: str = "multilingual-e5-large"
+    celery_ingest: bool = False
 
 
 settings = Settings()
