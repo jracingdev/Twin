@@ -600,11 +600,60 @@ Agende no aaPanel → **Cron** (ex.: 03:00 diário).
 | Fila não processa | `QUEUE_CONNECTION=redis`, Redis ativo, Supervisor `twin-queue` |
 | `pdo_mysql` ausente | aaPanel → PHP → Install extensions → **reboot** |
 | CORS no login | Veja [CORS (preflight OPTIONS)](#cors-preflight-options) |
+| `open_basedir restriction` / `vendor/autoload.php` Operation not permitted | Veja [open_basedir (Laravel)](#open_basedir-laravel) |
+| `storage/logs/laravel.log` Permission denied | `sudo chown -R www:www apps/api/storage apps/api/bootstrap/cache && chmod -R ug+rwx apps/api/storage apps/api/bootstrap/cache` |
 | `Password authentication is not supported` no `git clone` | Repo privado — use [PAT ou SSH](#clonar-repositório-https-com-pat-ou-ssh); restaure `twin.app.br.bak` se necessário |
 | `git pull` permission denied / dubious ownership | `sudo git -c safe.directory=/www/wwwroot/twin.app.br pull` ou `git checkout -- infra/aapanel/setup.sh` antes do pull |
 | `composer` usa PHP 8.1 / Symfony exige 8.4 | Sempre: `/www/server/php/82/bin/php /usr/local/bin/composer install` |
 | `ext-fileinfo` ausente | aaPanel → PHP 8.2 → Extensions → **fileinfo** → reinicie PHP |
 | `pydantic-core` / Python 3.14 no venv | Ubuntu 26: `sudo apt install python3.13 python3.13-venv` (deadsnakes PPA); `rm -rf apps/ai-engine/.venv`; `PYTHON_BIN=python3.13 ./infra/aapanel/setup.sh` |
+
+---
+
+## open_basedir (Laravel)
+
+O aaPanel costuma definir `open_basedir` só em `.../apps/api/public/`. O Laravel precisa ler `vendor/`, `storage/` e `bootstrap/` **fora** de `public/`.
+
+**Sintoma no curl/browser:**
+
+```text
+open_basedir restriction in effect. File(.../vendor/autoload.php) is not within the allowed path(s):
+(.../apps/api/public/:/tmp/)
+```
+
+### Correção (escolha uma)
+
+**A) Painel aaPanel (recomendado)**  
+Site `api.twin.app.br` → **PHP** → **open_basedir** → altere para:
+
+```text
+/www/wwwroot/twin.app.br/apps/api/:/tmp/
+```
+
+Ou desmarque “Anti-XSS / open_basedir” se o painel permitir.
+
+**B) Snippet nginx**  
+O `infra/aapanel/nginx-api.conf.snippet` já inclui:
+
+```nginx
+fastcgi_param PHP_ADMIN_VALUE "open_basedir=/www/wwwroot/twin.app.br/apps/api/:/tmp/";
+```
+
+Cole no Custom do site `api.twin.app.br` e `nginx -s reload`.
+
+### Permissões storage (obrigatório junto)
+
+```bash
+cd /www/wwwroot/twin.app.br/apps/api
+sudo chown -R www:www storage bootstrap/cache
+sudo chmod -R ug+rwx storage bootstrap/cache
+```
+
+Teste:
+
+```bash
+curl -sf https://api.twin.app.br/up && echo " API OK"
+```
 
 ---
 

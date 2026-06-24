@@ -14,6 +14,8 @@ location / {
 location ~ \.php$ {
     include enable-php-82.conf;   # ajuste a versão PHP instalada no painel
     fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+    # Laravel precisa de vendor/, storage/, bootstrap/ fora de public/
+    fastcgi_param PHP_ADMIN_VALUE "open_basedir=/www/wwwroot/twin.app.br/apps/api/:/tmp/";
     include fastcgi_params;
     fastcgi_read_timeout 300;
 }
