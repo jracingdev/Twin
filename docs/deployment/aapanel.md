@@ -252,6 +252,7 @@ APP_ENV=production
 APP_DEBUG=false
 APP_URL=https://api.twin.app.br
 FRONTEND_URL=https://twin.app.br
+CORS_ALLOWED_ORIGINS=https://twin.app.br
 
 DB_CONNECTION=mysql
 DB_HOST=127.0.0.1
@@ -598,12 +599,63 @@ Agende no aaPanel → **Cron** (ex.: 03:00 diário).
 | Motor IA indisponível no import | Supervisor `twin-ai-engine`; nginx `/ai-engine/` no site web |
 | Fila não processa | `QUEUE_CONNECTION=redis`, Redis ativo, Supervisor `twin-queue` |
 | `pdo_mysql` ausente | aaPanel → PHP → Install extensions → **reboot** |
-| CORS no login | `FRONTEND_URL=https://twin.app.br` na API |
+| CORS no login | Veja [CORS (preflight OPTIONS)](#cors-preflight-options) |
 | `Password authentication is not supported` no `git clone` | Repo privado — use [PAT ou SSH](#clonar-repositório-https-com-pat-ou-ssh); restaure `twin.app.br.bak` se necessário |
 | `git pull` permission denied / dubious ownership | `sudo git -c safe.directory=/www/wwwroot/twin.app.br pull` ou `git checkout -- infra/aapanel/setup.sh` antes do pull |
 | `composer` usa PHP 8.1 / Symfony exige 8.4 | Sempre: `/www/server/php/82/bin/php /usr/local/bin/composer install` |
 | `ext-fileinfo` ausente | aaPanel → PHP 8.2 → Extensions → **fileinfo** → reinicie PHP |
 | `pydantic-core` / Python 3.14 no venv | Ubuntu 26: `sudo apt install python3.13 python3.13-venv` (deadsnakes PPA); `rm -rf apps/ai-engine/.venv`; `PYTHON_BIN=python3.13 ./infra/aapanel/setup.sh` |
+
+---
+
+## CORS (preflight OPTIONS)
+
+O browser envia `OPTIONS` antes de `POST /api/v1/login`. A API precisa responder com `Access-Control-Allow-Origin` para a origem do frontend (`https://twin.app.br`).
+
+### Variáveis em `apps/api/.env`
+
+```env
+FRONTEND_URL=https://twin.app.br
+CORS_ALLOWED_ORIGINS=https://twin.app.br
+```
+
+`CORS_ALLOWED_ORIGINS` aceita várias origens separadas por vírgula. Em `APP_ENV=production`, o padrão `config/cors.php` também aceita `https://twin.app.br` e `https://*.twin.app.br` via `allowed_origins_patterns`.
+
+O login usa **Bearer token** (não cookies) — `supports_credentials` permanece `false`.
+
+### Nginx da API
+
+Cole o snippet atualizado `infra/aapanel/nginx-api.conf.snippet` no site `api.twin.app.br` (bloco Custom). Ele garante que requisições `OPTIONS` cheguem ao Laravel (`HandleCors`), em vez de serem descartadas antes do PHP.
+
+### Teste no servidor (curl)
+
+```bash
+# Preflight — deve retornar 204/200 com Access-Control-Allow-Origin: https://twin.app.br
+curl -vk -X OPTIONS https://api.twin.app.br/api/v1/login \
+  -H "Origin: https://twin.app.br" \
+  -H "Access-Control-Request-Method: POST"
+
+# Conferir variáveis no .env
+grep -E '^(FRONTEND_URL|CORS_ALLOWED_ORIGINS|APP_ENV)=' /www/wwwroot/twin.app.br/apps/api/.env
+
+# Recarregar config Laravel (obrigatório após alterar .env)
+cd /www/wwwroot/twin.app.br/apps/api
+/www/server/php/82/bin/php artisan config:clear
+/www/server/php/82/bin/php artisan config:cache
+
+# Recarregar nginx (após atualizar snippet)
+nginx -t && nginx -s reload
+```
+
+Resposta esperada do `curl -vk` (trechos):
+
+```text
+< HTTP/2 204
+< access-control-allow-origin: https://twin.app.br
+< access-control-allow-methods: POST
+```
+
+Se o preflight retornar `200/204` **sem** `access-control-allow-origin`, verifique: `.env` com `FRONTEND_URL` correto, `config:cache` executado, snippet nginx com rewrite de `OPTIONS`, e `APP_ENV=production` (para o pattern `*.twin.app.br`).
 
 ---
 
