@@ -7,10 +7,11 @@ use App\Models\AuditLog;
 use App\Models\ConsentRecord;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 
 class ConsentController extends Controller
 {
-    public function latest(Request $request): JsonResponse
+    public function latest(Request $request): JsonResponse|Response
     {
         $type = $request->query('type', 'import');
 
