@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import { twinApi, type Twin } from "@/lib/api";
 
 type Props = {
@@ -17,11 +18,21 @@ export function TwinSelect({
   className = "",
   preferredTwinId,
 }: Props) {
+  const { organization, loading: authLoading } = useAuth();
   const [twins, setTwins] = useState<Twin[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!organization) {
+      setTwins([]);
+      setError("Nenhuma organização vinculada à sua conta.");
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError("");
     twinApi
       .listTwins()
       .then((res) => {
@@ -30,7 +41,7 @@ export function TwinSelect({
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Erro ao carregar twins"))
       .finally(() => setLoading(false));
-  }, []);
+  }, [authLoading, organization?.id]);
 
   useEffect(() => {
     if (value) return;

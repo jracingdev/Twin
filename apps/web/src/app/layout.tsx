@@ -3,6 +3,7 @@ import "./globals.css";
 import { Nav } from "@/components/Nav";
 import { Providers } from "@/components/Providers";
 import { RouteGuard } from "@/components/RouteGuard";
+import { TenantSetupBanner } from "@/components/TenantSetupBanner";
 
 export const metadata: Metadata = {
   title: "TWIN — Gêmeo Digital",
@@ -20,6 +21,7 @@ export default function RootLayout({
       <body className="antialiased">
         <Providers>
           <Nav />
+          <TenantSetupBanner />
           <RouteGuard>
             <main className="mx-auto max-w-7xl px-4 py-8">{children}</main>
           </RouteGuard>

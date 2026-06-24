@@ -14,8 +14,17 @@ class InitializeTenancyForOrganization
         $tenantId = $request->header('X-Tenant')
             ?? $request->attributes->get('organization_id');
 
+        $user = $request->user();
+        if (! $tenantId && $user) {
+            $tenantId = $user->organizations()->value('organizations.id');
+        }
+
         if (! $tenantId) {
-            return response()->json(['message' => 'Header X-Tenant obrigatório.'], 400);
+            $message = $user
+                ? 'Nenhuma organização vinculada a este usuário. No servidor: php artisan db:seed && php artisan twin:reset-demo-user && php artisan tenants:provision --seed'
+                : 'Header X-Tenant obrigatório.';
+
+            return response()->json(['message' => $message], 400);
         }
 
         $tenant = Organization::find($tenantId);
@@ -23,7 +32,6 @@ class InitializeTenancyForOrganization
             return response()->json(['message' => 'Organização não encontrada.'], 404);
         }
 
-        $user = $request->user();
         if ($user && ! $user->organizations()->where('organizations.id', $tenantId)->exists()) {
             return response()->json(['message' => 'Organização não autorizada.'], 403);
         }
