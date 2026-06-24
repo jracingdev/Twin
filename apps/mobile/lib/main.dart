@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'config.dart';
 import 'screens/login_screen.dart';
 import 'services/auth_storage.dart';
+import 'services/notification_service.dart';
 import 'services/twin_api.dart';
 import 'screens/home_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await NotificationService.instance.init();
   runApp(const TwinApp());
 }
 

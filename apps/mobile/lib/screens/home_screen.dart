@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import '../services/auth_storage.dart';
+import '../services/inbox_poller.dart';
 import '../services/twin_api.dart';
 import 'dashboard_screen.dart';
 import 'inbox_screen.dart';
@@ -22,15 +23,30 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _index = 0;
   String? _twinId;
+  InboxPoller? _inboxPoller;
 
   @override
   void initState() {
     super.initState();
     widget.api.listTwins().then((twins) {
       if (twins.isNotEmpty && mounted) {
-        setState(() => _twinId = twins.first['id'] as String?);
+        final id = twins.first['id'] as String?;
+        setState(() => _twinId = id);
+        _startInboxPoller(id);
       }
     });
+  }
+
+  void _startInboxPoller(String? twinId) {
+    _inboxPoller?.dispose();
+    _inboxPoller = InboxPoller(api: widget.api, twinId: twinId)
+      ..start();
+  }
+
+  @override
+  void dispose() {
+    _inboxPoller?.dispose();
+    super.dispose();
   }
 
   @override

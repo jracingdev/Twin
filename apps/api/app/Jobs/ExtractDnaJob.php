@@ -2,11 +2,9 @@
 
 namespace App\Jobs;
 
-use App\Models\BehavioralDna;
-use App\Models\DnaVersion;
 use App\Models\Message;
 use App\Services\AiEngineClient;
-use App\Services\WebhookDispatcher;
+use App\Services\BehavioralDnaPersister;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -19,7 +17,7 @@ class ExtractDnaJob implements ShouldQueue
 
     public function __construct(public string $twinId) {}
 
-    public function handle(AiEngineClient $ai, WebhookDispatcher $webhooks): void
+    public function handle(AiEngineClient $ai, BehavioralDnaPersister $dnaPersister): void
     {
         $messages = Message::where('twin_id', $this->twinId)
             ->where('role', 'user')
@@ -39,28 +37,9 @@ class ExtractDnaJob implements ShouldQueue
             $payload['messages'] = $messages;
         }
 
+        // Fluxo síncrono pós-importação — não depende de Celery/Redis.
         $result = $ai->extractDna($payload);
 
-        BehavioralDna::where('twin_id', $this->twinId)->update(['is_active' => false]);
-
-        $dna = BehavioralDna::create([
-            'twin_id' => $this->twinId,
-            'version' => $result['version'] ?? '1.0.0',
-            'payload' => $result['payload'],
-            'is_active' => true,
-        ]);
-
-        DnaVersion::create([
-            'twin_id' => $this->twinId,
-            'version' => $dna->version,
-            'payload' => $dna->payload,
-            'change_summary' => 'auto_extract',
-        ]);
-
-        $webhooks->dispatchForTenant('dna.updated', [
-            'twin_id' => $this->twinId,
-            'version' => $dna->version,
-            'source' => 'auto_extract',
-        ]);
+        $dnaPersister->persist($this->twinId, $result, 'auto_extract', 'auto_extract');
     }
 }

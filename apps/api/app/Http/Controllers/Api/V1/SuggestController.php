@@ -3,12 +3,10 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
-use App\Jobs\SyncAcceptedSuggestionJob;
 use App\Models\ResponseSuggestion;
-use App\Models\Twin;
 use App\Services\AiEngineClient;
 use App\Services\PlanFeaturesService;
-use App\Services\WebhookDispatcher;
+use App\Services\SuggestionAcceptanceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -17,7 +15,7 @@ class SuggestController extends Controller
     public function __construct(
         private AiEngineClient $ai,
         private PlanFeaturesService $plans,
-        private WebhookDispatcher $webhooks
+        private SuggestionAcceptanceService $acceptance,
     ) {}
 
     public function store(Request $request): JsonResponse
@@ -40,7 +38,7 @@ class SuggestController extends Controller
             return response()->json([
                 'message' => 'Limite mensal de sugestões atingido para o seu plano.',
                 'code' => 'plan_messages_limit',
-            ], 403);
+            ], 402);
         }
 
         if ($sellerMode && ! $this->plans->canUseSellerMode(tenant('id'))) {
@@ -123,13 +121,7 @@ class SuggestController extends Controller
         $suggestion->update($updates);
 
         if ($data['status'] === 'accepted') {
-            $this->webhooks->dispatchForTenant('suggestion.accepted', [
-                'suggestion_id' => $suggestion->id,
-                'twin_id' => $suggestion->twin_id,
-                'status' => $data['status'],
-            ]);
-
-            SyncAcceptedSuggestionJob::dispatch($suggestion->id, tenant('id'));
+            $this->acceptance->handleAccepted($suggestion->fresh(), tenant('id'));
         }
 
         return response()->json($suggestion);

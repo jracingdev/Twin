@@ -106,6 +106,17 @@ class AiEngineClient
         return $response->json();
     }
 
+    public function scoreStyle(array $payload): array
+    {
+        $response = Http::withHeaders($this->headers())
+            ->timeout(30)
+            ->post($this->baseUrl().'/ai/respond/score-style', $payload);
+
+        $response->throw();
+
+        return $response->json();
+    }
+
     public function computeSimilarity(array $payload): array
     {
         $response = Http::withHeaders($this->headers())

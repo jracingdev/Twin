@@ -4,18 +4,16 @@ namespace App\Http\Controllers\Internal;
 
 use App\Http\Controllers\Controller;
 use App\Jobs\ExtractDnaJob;
-use App\Models\BehavioralDna;
-use App\Models\DnaVersion;
 use App\Models\ImportBatch;
 use App\Models\TrainingJob;
+use App\Services\BehavioralDnaPersister;
 use App\Services\ImportMessagePersister;
-use App\Services\WebhookDispatcher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class InternalJobCallbackController extends Controller
 {
-    public function complete(Request $request, string $id, WebhookDispatcher $webhooks): JsonResponse
+    public function complete(Request $request, string $id): JsonResponse
     {
         $data = $request->validate([
             'job_type' => 'required|in:import_batch,training',
@@ -40,7 +38,7 @@ class InternalJobCallbackController extends Controller
             return $this->completeImport($id, $data);
         }
 
-        return $this->completeTraining($id, $data, $webhooks);
+        return $this->completeTraining($id, $data);
     }
 
     private function completeImport(string $id, array $data): JsonResponse
@@ -93,7 +91,7 @@ class InternalJobCallbackController extends Controller
         return response()->json(['message' => 'Import completed']);
     }
 
-    private function completeTraining(string $id, array $data, WebhookDispatcher $webhooks): JsonResponse
+    private function completeTraining(string $id, array $data): JsonResponse
     {
         $job = TrainingJob::find($id);
         if (! $job) {
@@ -113,27 +111,12 @@ class InternalJobCallbackController extends Controller
         $result = $data['result'] ?? [];
 
         if ($job->type === 'dna_extract' && ! empty($result['payload'])) {
-            BehavioralDna::where('twin_id', $job->twin_id)->update(['is_active' => false]);
-
-            $dna = BehavioralDna::create([
-                'twin_id' => $job->twin_id,
-                'version' => $result['version'] ?? '1.0.0',
-                'payload' => $result['payload'],
-                'is_active' => true,
-            ]);
-
-            DnaVersion::create([
-                'twin_id' => $job->twin_id,
-                'version' => $dna->version,
-                'payload' => $dna->payload,
-                'change_summary' => 'ai_engine_callback',
-            ]);
-
-            $webhooks->dispatchForTenant('dna.updated', [
-                'twin_id' => $job->twin_id,
-                'version' => $dna->version,
-                'source' => 'training_job',
-            ]);
+            app(BehavioralDnaPersister::class)->persist(
+                $job->twin_id,
+                $result,
+                'ai_engine_callback',
+                'training_job',
+            );
         }
 
         $job->update([

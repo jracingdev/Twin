@@ -58,6 +58,18 @@ def explain(req: ExplainRequest):
     )
 
 
+class ScoreStyleRequest(BaseModel):
+    tenant_id: str
+    twin_id: str
+    text: str
+    dna: dict | None = None
+
+
+@router.post("/respond/score-style")
+def score_style(req: ScoreStyleRequest):
+    return engine.score_style(req.tenant_id, req.twin_id, req.text, req.dna)
+
+
 @router.post("/respond/similarity")
 def similarity(req: SimilarityRequest):
     a = set(req.text_a.lower().split())

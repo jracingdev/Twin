@@ -291,6 +291,24 @@ class RAGEngine:
                 return [" ".join(vocab[:20])]
         return []
 
+    def score_style(
+        self,
+        tenant_id: str,
+        twin_id: str,
+        text: str,
+        dna: dict | None = None,
+    ) -> dict[str, Any]:
+        ctx = self.memory.retrieve_context(tenant_id, twin_id, text)
+        corpus = self._corpus_for_scoring(ctx, dna)
+        similarity = score_similarity(text, corpus)
+        confidence = similarity["geral"]
+        return {
+            "confidence": confidence,
+            "score": confidence,
+            "similarity": similarity,
+            "similarity_breakdown": similarity,
+        }
+
     def _build_prompt(
         self,
         user_input: str,

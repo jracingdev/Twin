@@ -7,6 +7,7 @@ use App\Models\Message;
 use App\Models\ResponseSuggestion;
 use App\Models\Twin;
 use App\Services\AiEngineClient;
+use App\Services\PlanFeaturesService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -30,8 +31,18 @@ class ProcessChannelMessageJob implements ShouldQueue
         public array $platformMeta
     ) {}
 
-    public function handle(AiEngineClient $ai): void
+    public function handle(AiEngineClient $ai, PlanFeaturesService $plans): void
     {
+        if (! $plans->canSuggest($this->organizationId)) {
+            Log::warning('ProcessChannelMessageJob skipped: plan messages limit reached', [
+                'message_id' => $this->messageId,
+                'twin_id' => $this->twinId,
+                'organization_id' => $this->organizationId,
+            ]);
+
+            return;
+        }
+
         $message = Message::findOrFail($this->messageId);
         $twin = Twin::with('activeDna')->findOrFail($this->twinId);
 

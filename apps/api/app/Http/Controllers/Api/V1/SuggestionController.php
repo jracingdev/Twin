@@ -8,13 +8,16 @@ use App\Models\Message;
 use App\Models\ResponseSuggestion;
 use App\Models\Twin;
 use App\Services\AiEngineClient;
-use App\Services\WebhookDispatcher;
+use App\Services\SuggestionAcceptanceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class SuggestionController extends Controller
 {
-    public function __construct(private AiEngineClient $ai) {}
+    public function __construct(
+        private AiEngineClient $ai,
+        private SuggestionAcceptanceService $acceptance,
+    ) {}
     public function index(Request $request): JsonResponse
     {
         $data = $request->validate([
@@ -39,7 +42,7 @@ class SuggestionController extends Controller
         return response()->json($query->paginate($perPage));
     }
 
-    public function send(Request $request, ResponseSuggestion $suggestion, WebhookDispatcher $webhooks): JsonResponse
+    public function send(Request $request, ResponseSuggestion $suggestion): JsonResponse
     {
         if ($suggestion->status === 'sent') {
             return response()->json(['message' => 'Sugestão já enviada.'], 422);
@@ -79,12 +82,12 @@ class SuggestionController extends Controller
             )->onQueue('channel');
         }
 
-        $webhooks->dispatchForTenant('suggestion.accepted', [
-            'suggestion_id' => $suggestion->id,
-            'twin_id' => $suggestion->twin_id,
-            'status' => 'sent',
-            'sent_via_channel' => ! empty($meta['channel']),
-        ]);
+        $this->acceptance->handleAccepted(
+            $suggestion->fresh(),
+            tenant('id'),
+            'sent',
+            ['sent_via_channel' => ! empty($meta['channel'])],
+        );
 
         return response()->json($suggestion->fresh());
     }
