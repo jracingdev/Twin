@@ -454,7 +454,7 @@ Programas:
 
 ### Laravel Horizon (opcional)
 
-O pacote `laravel/horizon` está no `composer.json`. Se publicar a config:
+O deploy aaPanel usa `queue:work` no Supervisor (padrão). **Horizon** é opcional — só adicione `composer require laravel/horizon` se quiser o dashboard de filas; depois:
 
 ```bash
 php artisan horizon:install
