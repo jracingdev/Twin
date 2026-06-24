@@ -13,10 +13,20 @@ class ChannelMetricsController extends Controller
     public function index(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'twin_id' => 'required|uuid',
+            'twin_id' => 'nullable|uuid',
         ]);
 
-        $twinId = $data['twin_id'];
+        $twinId = $data['twin_id'] ?? null;
+        if (! $twinId) {
+            return response()->json([
+                'twin_id' => null,
+                'pending' => 0,
+                'sent_today' => 0,
+                'avg_response_time_seconds' => null,
+                'accept_rate_7d' => null,
+            ]);
+        }
+
         $channelQuery = fn () => ResponseSuggestion::query()
             ->where('twin_id', $twinId)
             ->whereNotNull('metadata->channel');

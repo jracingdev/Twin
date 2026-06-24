@@ -485,9 +485,9 @@ export const twinApi = {
       method: "POST",
       body: JSON.stringify(text ? { text } : {}),
     }),
-  channelMetrics: (twinId?: string) =>
+  channelMetrics: (twinId: string) =>
     api<ChannelMetrics>(
-      `/channel-metrics${twinId ? `?twin_id=${twinId}` : ""}`
+      `/channel-metrics?twin_id=${encodeURIComponent(twinId)}`
     ),
   suggestionMetrics: (twinId?: string) =>
     api<{
