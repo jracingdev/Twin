@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     pinecone_api_key: str = ""
     pinecone_index: str = "twin-integrated"
+    pinecone_index_host: str = ""
     openai_api_key: str = ""
     llm_provider: str = "openai"
     ai_engine_secret: str = "change-me-internal-secret"

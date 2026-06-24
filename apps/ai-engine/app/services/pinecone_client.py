@@ -21,7 +21,11 @@ def get_index():
             from pinecone import Pinecone
 
             pc = Pinecone(api_key=settings.pinecone_api_key)
-            _pc_index = pc.Index(settings.pinecone_index)
+            if settings.pinecone_index_host:
+                host = settings.pinecone_index_host.removeprefix("https://").removeprefix("http://")
+                _pc_index = pc.Index(host=host)
+            else:
+                _pc_index = pc.Index(settings.pinecone_index)
         except Exception as exc:
             logger.warning("Pinecone indisponível (ingest continua sem indexação): %s", exc)
             _pc_unavailable = True
@@ -79,16 +83,40 @@ def delete_twin_namespaces(tenant_id: str, twin_id: str) -> None:
 def ensure_index_exists() -> dict:
     if not settings.pinecone_api_key:
         return {"status": "skipped", "reason": "no API key"}
-    from pinecone import Pinecone, ServerlessSpec
+
+    from pinecone import Pinecone
 
     pc = Pinecone(api_key=settings.pinecone_api_key)
-    existing = [i.name for i in pc.list_indexes()]
-    if settings.pinecone_index in existing:
-        return {"status": "exists", "name": settings.pinecone_index}
-    pc.create_index_for_model(
-        name=settings.pinecone_index,
+    name = settings.pinecone_index
+
+    try:
+        if hasattr(pc, "has_index") and pc.has_index(name):
+            return {"status": "exists", "name": name}
+        existing = {idx.name for idx in pc.list_indexes()}
+        if name in existing:
+            return {"status": "exists", "name": name}
+    except Exception as exc:
+        if settings.pinecone_index_host:
+            return {
+                "status": "exists",
+                "name": name,
+                "host": settings.pinecone_index_host,
+                "note": "host configurado manualmente",
+            }
+        return {"status": "error", "reason": str(exc)}
+
+    create = getattr(pc, "create_index_for_model", None)
+    if create is None:
+        return {
+            "status": "missing",
+            "name": name,
+            "hint": "Crie o índice no console Pinecone (integrated embeddings) ou atualize pinecone>=6.",
+        }
+
+    create(
+        name=name,
         cloud="aws",
         region="us-east-1",
         embed={"model": settings.embed_model, "field_map": {"text": "chunk_text"}},
     )
-    return {"status": "created", "name": settings.pinecone_index}
+    return {"status": "created", "name": name}
