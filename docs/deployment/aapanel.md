@@ -16,7 +16,7 @@ Guia completo para produção no **Ubuntu 26.04** (ou 22.04/24.04) com [aaPanel]
 | MySQL 8 | `127.0.0.1:3306` | `twin_landlord` + `twin_tenant_*` |
 | Redis | `127.0.0.1:6379` | Filas Laravel + Celery |
 
-Scripts e snippets: `infra/aapanel/`.
+Scripts e snippets: `infra/aapanel/` (`clone.sh`, `setup.sh`).
 
 ---
 
@@ -74,18 +74,15 @@ Firewall (aaPanel → Security):
 
 ## 1. Clone e branch
 
-```bash
-cd /www/wwwroot
-# Se o painel já criou twin.app.br vazio, use esse diretório:
-cd twin.app.br
+Se o aaPanel criou o site **sem** Git, veja primeiro [Site criado no aaPanel sem Git](#site-criado-no-aapanel-sem-git).
 
-git clone <URL_DO_REPO> .
-# ou, se já existe:
-git remote add origin <URL_DO_REPO>
-git fetch origin
+```bash
+cd /www/wwwroot/twin.app.br
+git clone https://github.com/jracingdev/Twin.git .
 git checkout main
-git pull origin main
 ```
+
+Ou use o script: `chmod +x infra/aapanel/clone.sh && ./infra/aapanel/clone.sh`
 
 **Branch recomendada:** `main` em produção. Use tags ou branch `release/*` se sua equipe adotar releases nomeadas.
 
@@ -186,6 +183,65 @@ NEXT_PUBLIC_AI_ENGINE_URL=https://twin.app.br/ai-engine
 ```
 
 O path `/ai-engine/` é proxy nginx → `127.0.0.1:8100` (health check no browser durante import).
+
+---
+
+## Site criado no aaPanel sem Git
+
+Se o aaPanel já criou o site `twin.app.br` mas você vê:
+
+```text
+fatal: not a git repository (or any of the parent directories): .git
+```
+
+o diretório `/www/wwwroot/twin.app.br` existe, mas **nunca foi clonado** do GitHub. Escolha uma opção:
+
+### Opção A (recomendada) — backup e clone limpo
+
+Use quando a pasta está vazia ou só tem o `index.html` padrão do painel.
+
+```bash
+sudo mkdir -p /www/backup
+sudo mv /www/wwwroot/twin.app.br /www/backup/twin.app.br.empty.$(date +%Y%m%d%H%M)
+sudo git clone https://github.com/jracingdev/Twin.git /www/wwwroot/twin.app.br
+cd /www/wwwroot/twin.app.br
+git checkout main
+sudo chown -R www:www /www/wwwroot/twin.app.br
+```
+
+Depois continue com o [bootstrap](#4-bootstrap-automatizado) (`setup.sh`).
+
+### Opção B — Git na pasta existente
+
+Use quando já há arquivos no site e você **não** quer apagar a pasta (ex.: `.env` ou uploads locais).
+
+```bash
+cd /www/wwwroot/twin.app.br
+git init
+git remote add origin https://github.com/jracingdev/Twin.git
+git fetch origin
+git checkout -b main origin/main
+```
+
+Se o `git checkout` reclamar de arquivos locais conflitantes, faça backup do que precisa manter e remova só os arquivos padrão do painel antes de repetir o checkout:
+
+```bash
+cd /www/wwwroot/twin.app.br
+rm -f index.html index.php 404.html .htaccess
+git checkout -f main
+```
+
+### Script auxiliar
+
+Após o clone, o repositório inclui `infra/aapanel/clone.sh`, que detecta pasta vazia e clona automaticamente; se houver arquivos, imprime as instruções da Opção B.
+
+```bash
+# No servidor, após baixar o script (ou após clone manual):
+chmod +x /www/wwwroot/twin.app.br/infra/aapanel/clone.sh
+/www/wwwroot/twin.app.br/infra/aapanel/clone.sh
+```
+
+Variáveis opcionais: `TARGET_DIR`, `REPO_URL`, `BRANCH` (padrão `main`).
 
 ---
 
