@@ -8,21 +8,31 @@ use Illuminate\Support\Facades\File;
 
 class DocsController extends Controller
 {
-    public function openapi(): JsonResponse|\Symfony\Component\HttpFoundation\BinaryFileResponse
+    public function openapi(): JsonResponse|\Illuminate\Http\Response
     {
-        $path = base_path('../../packages/shared-contracts/openapi.yaml');
-        if (! File::exists($path)) {
-            $path = base_path('../packages/shared-contracts/openapi.yaml');
+        $path = null;
+        foreach ([
+            resource_path('openapi.yaml'),
+            base_path('../../packages/shared-contracts/openapi.yaml'),
+            base_path('../packages/shared-contracts/openapi.yaml'),
+        ] as $candidate) {
+            if (File::exists($candidate)) {
+                $path = $candidate;
+                break;
+            }
         }
 
-        if (! File::exists($path)) {
+        if (! $path) {
             return response()->json([
-                'message' => 'openapi.yaml não encontrado em packages/shared-contracts/',
+                'message' => 'openapi.yaml não encontrado.',
                 'docs_url' => config('twin.frontend_url').'/docs',
-            ]);
+            ], 404);
         }
 
-        return response()->file($path, ['Content-Type' => 'application/yaml']);
+        return response(File::get($path), 200, [
+            'Content-Type' => 'application/yaml',
+            'Content-Disposition' => 'inline; filename="openapi.yaml"',
+        ]);
     }
 
     public function swaggerUi(): \Illuminate\Http\Response

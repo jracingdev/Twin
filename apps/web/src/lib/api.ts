@@ -426,7 +426,7 @@ export const twinApi = {
   purge: (id: string) =>
     api<{ message: string }>(`/twins/${id}/purge`, { method: "POST" }),
   latestConsent: (type = "import", organizationId?: string | null) =>
-    api<{ id: number }>(`/consent/latest?type=${encodeURIComponent(type)}`, {}, undefined, {
+    api<{ id: number } | undefined>(`/consent/latest?type=${encodeURIComponent(type)}`, {}, undefined, {
       organizationId,
     }),
   consent: (

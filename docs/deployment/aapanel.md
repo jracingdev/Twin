@@ -641,6 +641,8 @@ fastcgi_param PHP_ADMIN_VALUE "open_basedir=/www/wwwroot/twin.app.br/apps/api/:/
 
 Cole no Custom do site `api.twin.app.br` e `nginx -s reload`.
 
+O endpoint `GET /api/v1/docs/openapi.yaml` lê `apps/api/resources/openapi.yaml` (cópia embutida no deploy). Em desenvolvimento local, o `DocsController` também tenta `packages/shared-contracts/openapi.yaml`. Ao alterar o contrato OpenAPI no monorepo, atualize a cópia em `apps/api/resources/` antes do deploy.
+
 ### Permissões storage (obrigatório junto)
 
 ```bash

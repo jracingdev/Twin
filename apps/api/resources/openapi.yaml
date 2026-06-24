@@ -1,0 +1,57 @@
+openapi: 3.1.0
+info:
+  title: TWIN Public API
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080/api/v1
+paths:
+  /twins:
+    get:
+      summary: Listar Twins
+      tags: [Twins]
+      responses:
+        "200":
+          description: OK
+    post:
+      summary: Criar Twin
+      tags: [Twins]
+      responses:
+        "201":
+          description: Criado
+  /twins/{id}:
+    get:
+      summary: Obter Twin
+      tags: [Twins]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: OK
+  /suggest:
+    post:
+      summary: Sugerir resposta
+      tags: [AI]
+      responses:
+        "200":
+          description: Sugestão
+  /imports:
+    post:
+      summary: Upload importação
+      tags: [Imports]
+      responses:
+        "202":
+          description: Enfileirado
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-Api-Key

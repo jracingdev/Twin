@@ -22,7 +22,7 @@ class ConsentController extends Controller
             ->first();
 
         if (! $consent) {
-            return response()->json(['message' => 'Consentimento não encontrado.'], 404);
+            return response()->noContent();
         }
 
         return response()->json($consent);

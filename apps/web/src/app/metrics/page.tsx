@@ -11,10 +11,15 @@ export default function MetricsPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    if (!twinId) {
+      setMetrics(null);
+      setError("");
+      return;
+    }
     setLoading(true);
     setError("");
     twinApi
-      .channelMetrics(twinId || undefined)
+      .channelMetrics(twinId)
       .then(setMetrics)
       .catch((e) => setError(e instanceof Error ? e.message : "Erro ao carregar"))
       .finally(() => setLoading(false));
@@ -64,7 +69,7 @@ export default function MetricsPage() {
       </div>
 
       {error && <p className="text-sm text-red-400">{error}</p>}
-      {loading && <p className="text-twin-muted">Carregando métricas…</p>}
+      {loading && twinId && <p className="text-twin-muted">Carregando métricas…</p>}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {cards.map((c) => (
@@ -79,7 +84,7 @@ export default function MetricsPage() {
       {!loading && metrics && (
         <div className="glass p-6 text-sm text-twin-muted">
           <p>
-            Filtro: {twinId ? "Twin selecionado" : "Todos os twins da organização"}.
+            Twin selecionado.
             Dados baseados em sugestões de canal e inbox.
           </p>
         </div>

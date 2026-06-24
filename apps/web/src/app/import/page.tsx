@@ -120,6 +120,10 @@ export default function ImportPage() {
       try {
         const consent = await twinApi.latestConsent("import", organization.id);
         if (cancelled) return;
+        if (!consent) {
+          setConsentStatus("missing");
+          return;
+        }
         setStoredConsentId(consent.id);
         setConsentId(String(consent.id));
         setConsentStatus("ready");

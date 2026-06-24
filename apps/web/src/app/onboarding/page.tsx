@@ -36,8 +36,12 @@ export default function OnboardingPage() {
       try {
         const consent = await twinApi.latestConsent("import", organization.id);
         if (cancelled) return;
-        setStoredConsentId(consent.id);
-        router.replace("/import");
+        if (consent) {
+          setStoredConsentId(consent.id);
+          router.replace("/import");
+          return;
+        }
+        setCheckingExisting(false);
       } catch {
         if (!cancelled) setCheckingExisting(false);
       }
