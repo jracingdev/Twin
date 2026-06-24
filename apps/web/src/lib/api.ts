@@ -690,5 +690,17 @@ export const twinApi = {
       body: JSON.stringify(body),
     }),
   apiDocs: () =>
-    api<{ title: string; openapi: string; swagger_ui: string }>("/docs"),
+    api<{
+      title: string;
+      openapi: string;
+      swagger_ui: string;
+      production_api_url?: string;
+      auth?: {
+        login: string;
+        header: string;
+        tenant: string;
+        api_key?: string;
+      };
+      tags?: string[];
+    }>("/docs", {}, undefined, { softAuth: true }),
 };

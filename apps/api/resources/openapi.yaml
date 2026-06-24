@@ -2,56 +2,2221 @@ openapi: 3.1.0
 info:
   title: TWIN Public API
   version: 1.0.0
+  description: |
+    API pública do TWIN — plataforma de gêmeos digitais conversacionais com RAG, importação de conversas e integração multicanal.
+
+    ## Autenticação
+    1. Obtenha um token com `POST /login` (e-mail, senha e código 2FA se habilitado).
+    2. Envie `Authorization: Bearer {token}` em todas as rotas autenticadas.
+    3. Rotas de tenant exigem também o header `X-Tenant: {organization_uuid}` (UUID da organização retornado no login ou em `GET /me`).
+
+    Alternativa: chave de API via header `X-Api-Key` (quando configurada para a organização).
+
+    ## Webhooks de canal (ingress)
+    Canais como WhatsApp e Telegram recebem mensagens em URLs dedicadas geradas ao criar credenciais de canal (`webhook_url` na resposta). Essas rotas **não** fazem parte desta API de gestão — são endpoints de ingress configurados por plataforma.
+
+    ## Documentação interativa
+    - Índice JSON: `GET /docs`
+    - Especificação: `GET /docs/openapi.yaml`
+    - Swagger UI: `GET /docs/ui`
+
 servers:
+  - url: https://api.twin.app.br/api/v1
+    description: Produção
   - url: http://localhost:8080/api/v1
+    description: Desenvolvimento local
+
+tags:
+  - name: Auth
+    description: Login, sessão, organizações e 2FA
+  - name: Twins
+    description: CRUD e recursos do gêmeo digital
+  - name: Imports
+    description: Importação de conversas (requer consentimento LGPD)
+  - name: Consent
+    description: Registro de consentimento LGPD
+  - name: AI
+    description: Sugestões RAG e simulação
+  - name: Suggestions
+    description: Inbox de sugestões e feedback
+  - name: Channels
+    description: Credenciais e métricas de canais
+  - name: Billing
+    description: Planos e assinatura Stripe
+  - name: LGPD
+    description: Exportação, retenção e exclusão de dados
+  - name: Webhooks
+    description: Webhooks de saída (eventos da organização)
+  - name: Contacts
+    description: Contatos
+  - name: Conversations
+    description: Conversas e mensagens
+  - name: Train
+    description: Treinamento e extração de DNA
+  - name: Plan
+    description: Resumo do plano atual
+  - name: API Keys
+    description: Chaves de API da organização
+  - name: Timeline
+    description: Linha do tempo de eventos
+  - name: Playbooks
+    description: Playbooks de vendas
+  - name: Memory
+    description: Entidades e relações de memória
+
+security:
+  - bearerAuth: []
+
 paths:
+  /login:
+    post:
+      tags: [Auth]
+      summary: Login
+      description: Autentica com e-mail e senha. Retorna token Sanctum e organizações do usuário.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Token emitido (ou 2FA necessário)
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/LoginResponse'
+                  - $ref: '#/components/schemas/TwoFactorRequired'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /register:
+    post:
+      tags: [Auth]
+      summary: Cadastro
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Conta criada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '403':
+          description: Cadastro público desativado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /forgot-password:
+    post:
+      tags: [Auth]
+      summary: Solicitar redefinição de senha
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: Link enviado (se e-mail existir)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+
+  /reset-password:
+    post:
+      tags: [Auth]
+      summary: Redefinir senha
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, email, password, password_confirmation]
+              properties:
+                token:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 8
+                password_confirmation:
+                  type: string
+      responses:
+        '200':
+          description: Senha redefinida
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /logout:
+    post:
+      tags: [Auth]
+      summary: Encerrar sessão
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /me:
+    get:
+      tags: [Auth]
+      summary: Perfil e organização atual
+      description: Não exige X-Tenant; retorna a primeira organização ou a indicada no header.
+      responses:
+        '200':
+          description: Dados do usuário
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /organizations:
+    get:
+      tags: [Auth]
+      summary: Listar organizações do usuário
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Organization'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /organizations/switch:
+    post:
+      tags: [Auth]
+      summary: Selecionar organização ativa
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [organization_id]
+              properties:
+                organization_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  organization:
+                    $ref: '#/components/schemas/Organization'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /two-factor/status:
+    get:
+      tags: [Auth]
+      summary: Status do 2FA
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  enabled:
+                    type: boolean
+                  confirmed_at:
+                    type: string
+                    format: date-time
+                    nullable: true
+
+  /two-factor/enable:
+    post:
+      tags: [Auth]
+      summary: Iniciar ativação 2FA
+      responses:
+        '200':
+          description: Secret e QR code
+
+  /two-factor/confirm:
+    post:
+      tags: [Auth]
+      summary: Confirmar 2FA
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code:
+                  type: string
+                  minLength: 6
+                  maxLength: 6
+      responses:
+        '200':
+          description: 2FA ativado
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /two-factor:
+    delete:
+      tags: [Auth]
+      summary: Desativar 2FA
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password:
+                  type: string
+      responses:
+        '200':
+          description: 2FA desativado
+
   /twins:
     get:
-      summary: Listar Twins
       tags: [Twins]
-      responses:
-        "200":
-          description: OK
-    post:
-      summary: Criar Twin
-      tags: [Twins]
-      responses:
-        "201":
-          description: Criado
-  /twins/{id}:
-    get:
-      summary: Obter Twin
-      tags: [Twins]
+      summary: Listar twins
       parameters:
-        - name: id
+        - $ref: '#/components/parameters/XTenant'
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedTwins'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '400':
+          description: X-Tenant ausente ou inválido
+    post:
+      tags: [Twins]
+      summary: Criar twin
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TwinCreate'
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Twin'
+        '403':
+          $ref: '#/components/responses/ForbiddenPlan'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /twins/{twin}:
+    parameters:
+      - $ref: '#/components/parameters/XTenant'
+      - $ref: '#/components/parameters/TwinId'
+    get:
+      tags: [Twins]
+      summary: Obter twin
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TwinDetail'
+    put:
+      tags: [Twins]
+      summary: Atualizar twin
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TwinUpdate'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Twin'
+        '403':
+          $ref: '#/components/responses/ForbiddenPlan'
+    delete:
+      tags: [Twins]
+      summary: Excluir twin
+      responses:
+        '204':
+          description: Excluído
+
+  /twins/{twin}/stats:
+    get:
+      tags: [Twins]
+      summary: Estatísticas do twin
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+        - $ref: '#/components/parameters/TwinId'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TwinStats'
+
+  /twins/{twin}/dna/evolution:
+    get:
+      tags: [Twins]
+      summary: Evolução do DNA
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+        - $ref: '#/components/parameters/TwinId'
+      responses:
+        '200':
+          description: Histórico de versões de DNA
+
+  /twins/{twin}/imports:
+    get:
+      tags: [Twins]
+      summary: Importações do twin
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+        - $ref: '#/components/parameters/TwinId'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ImportBatch'
+
+  /twins/{twin}/purge:
+    post:
+      tags: [Twins]
+      summary: Purge LGPD do twin
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+        - $ref: '#/components/parameters/TwinId'
+      responses:
+        '200':
+          description: Exclusão enfileirada
+
+  /twins/{twin}/train:
+    post:
+      tags: [Train]
+      summary: Treinar twin com feedback aceito
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+        - $ref: '#/components/parameters/TwinId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                limit:
+                  type: integer
+                  minimum: 1
+                  maximum: 500
+                  default: 100
+                type:
+                  type: string
+                  enum: [incremental, reindex]
+                  default: incremental
+      responses:
+        '202':
+          description: Treinamento enfileirado
+        '422':
+          description: Sem sugestões aceitas
+
+  /twins/{twin}/training-status:
+    get:
+      tags: [Train]
+      summary: Status do último treinamento
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+        - $ref: '#/components/parameters/TwinId'
+      responses:
+        '200':
+          description: Status do job
+
+  /twins/{twin}/replay:
+    post:
+      tags: [AI]
+      summary: Simular resposta (sem persistir sugestão)
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+        - $ref: '#/components/parameters/TwinId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [input_text]
+              properties:
+                input_text:
+                  type: string
+                  maxLength: 10000
+                contact_id:
+                  type: string
+                  format: uuid
+                intensity:
+                  type: integer
+                  minimum: 1
+                  maximum: 4
+                seller_mode:
+                  type: boolean
+                confidence_threshold:
+                  type: number
+                  minimum: 0
+                  maximum: 1
+      responses:
+        '200':
+          description: Simulação
+        '403':
+          $ref: '#/components/responses/ForbiddenPlan'
+
+  /twins/{twin}/playbooks:
+    get:
+      tags: [Playbooks]
+      summary: Listar playbooks
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+        - $ref: '#/components/parameters/TwinId'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Playbook'
+    post:
+      tags: [Playbooks]
+      summary: Criar playbook
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+        - $ref: '#/components/parameters/TwinId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaybookCreate'
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Playbook'
+
+  /twins/{twin}/playbooks/resync:
+    post:
+      tags: [Playbooks]
+      summary: Sincronizar playbooks com motor de IA
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+        - $ref: '#/components/parameters/TwinId'
+      responses:
+        '200':
+          description: Sincronizado
+
+  /twins/{twin}/playbooks/{playbook}:
+    parameters:
+      - $ref: '#/components/parameters/XTenant'
+      - $ref: '#/components/parameters/TwinId'
+      - name: playbook
+        in: path
+        required: true
+        schema:
+          type: integer
+    put:
+      tags: [Playbooks]
+      summary: Atualizar playbook
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaybookCreate'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Playbook'
+    delete:
+      tags: [Playbooks]
+      summary: Excluir playbook
+      responses:
+        '204':
+          description: Excluído
+
+  /twins/{twin}/memory-entities:
+    get:
+      tags: [Memory]
+      summary: Listar entidades de memória
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+        - $ref: '#/components/parameters/TwinId'
+        - name: type
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paginado
+    post:
+      tags: [Memory]
+      summary: Criar entidade de memória
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+        - $ref: '#/components/parameters/TwinId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type, label]
+              properties:
+                type:
+                  type: string
+                  maxLength: 32
+                label:
+                  type: string
+                  maxLength: 255
+                content:
+                  type: string
+                metadata:
+                  type: object
+      responses:
+        '201':
+          description: Criada
+
+  /twins/{twin}/memory-edges:
+    get:
+      tags: [Memory]
+      summary: Listar relações entre entidades
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+        - $ref: '#/components/parameters/TwinId'
+      responses:
+        '200':
+          description: Paginado
+    post:
+      tags: [Memory]
+      summary: Criar relação
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+        - $ref: '#/components/parameters/TwinId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [subject_id, object_id, relation]
+              properties:
+                subject_id:
+                  type: string
+                  format: uuid
+                object_id:
+                  type: string
+                  format: uuid
+                relation:
+                  type: string
+                  maxLength: 64
+                context:
+                  type: string
+      responses:
+        '201':
+          description: Criada
+
+  /imports:
+    post:
+      tags: [Imports]
+      summary: Enviar arquivo de importação
+      description: |
+        Upload multipart. **Obrigatório** registrar consentimento LGPD antes (`POST /consent`) e informar `consent_id`.
+        Para arquivos ZIP, informe também `channel`.
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [twin_id, source, consent_id, file]
+              properties:
+                twin_id:
+                  type: string
+                  format: uuid
+                source:
+                  type: string
+                  enum: [whatsapp, telegram, instagram, facebook, messenger, email, json, csv, zip]
+                channel:
+                  type: string
+                  enum: [whatsapp, telegram, instagram, facebook, messenger]
+                  description: Obrigatório para source=zip
+                consent_id:
+                  type: integer
+                  description: ID retornado por POST /consent
+                file:
+                  type: string
+                  format: binary
+                  description: Máx. 512000 KB
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportBatch'
+        '403':
+          $ref: '#/components/responses/ForbiddenPlan'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /imports/{import}:
+    get:
+      tags: [Imports]
+      summary: Status da importação
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+        - name: import
           in: path
           required: true
           schema:
             type: string
             format: uuid
       responses:
-        "200":
-          description: OK
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportBatch'
+
+  /consent/latest:
+    get:
+      tags: [Consent]
+      summary: Último consentimento do usuário
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [import, training, fine_tune]
+            default: import
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsentRecord'
+        '204':
+          description: Nenhum consentimento registrado
+
+  /consent:
+    post:
+      tags: [Consent]
+      summary: Registrar consentimento LGPD
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsentCreate'
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsentRecord'
+
   /suggest:
     post:
-      summary: Sugerir resposta
       tags: [AI]
+      summary: Gerar sugestão RAG
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SuggestRequest'
       responses:
-        "200":
-          description: Sugestão
-  /imports:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuggestResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenPlan'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /suggestions:
+    get:
+      tags: [Suggestions]
+      summary: Listar sugestões (inbox)
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+        - name: twin_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, accepted, rejected, sent]
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: Paginado
+
+  /suggestions/metrics:
+    get:
+      tags: [Suggestions]
+      summary: Métricas de sugestões
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+        - name: twin_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuggestionMetrics'
+
+  /suggestions/{suggestion}:
+    patch:
+      tags: [Suggestions]
+      summary: Feedback (aceitar/rejeitar)
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+        - $ref: '#/components/parameters/SuggestionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [accepted, rejected]
+                edited_text:
+                  type: string
+                  maxLength: 10000
+      responses:
+        '200':
+          description: Sugestão atualizada
+
+  /suggestions/{suggestion}/explain:
+    get:
+      tags: [Suggestions]
+      summary: Explicar sugestão
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+        - $ref: '#/components/parameters/SuggestionId'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuggestionExplain'
+
+  /suggestions/{suggestion}/send:
     post:
-      summary: Upload importação
-      tags: [Imports]
+      tags: [Suggestions]
+      summary: Enviar sugestão via canal
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+        - $ref: '#/components/parameters/SuggestionId'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+                  maxLength: 10000
       responses:
-        "202":
-          description: Enfileirado
+        '200':
+          description: Enviada
+        '422':
+          description: Já enviada
+
+  /channel-credentials:
+    get:
+      tags: [Channels]
+      summary: Listar credenciais de canal
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ChannelCredential'
+    post:
+      tags: [Channels]
+      summary: Criar credencial de canal
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChannelCredentialCreate'
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChannelCredential'
+
+  /channel-credentials/{channelCredential}:
+    parameters:
+      - $ref: '#/components/parameters/XTenant'
+      - name: channelCredential
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    put:
+      tags: [Channels]
+      summary: Atualizar credencial
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                credentials:
+                  type: object
+                is_active:
+                  type: boolean
+                reply_mode:
+                  type: string
+                  enum: [assistant, copilot, approval, auto]
+                confidence_threshold:
+                  type: number
+                  minimum: 0
+                  maximum: 1
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChannelCredential'
+    delete:
+      tags: [Channels]
+      summary: Remover credencial
+      responses:
+        '204':
+          description: Removida
+
+  /channel-metrics:
+    get:
+      tags: [Channels]
+      summary: Métricas de canal
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+        - name: twin_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChannelMetrics'
+
+  /plan:
+    get:
+      tags: [Plan]
+      summary: Resumo do plano da organização
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanSummary'
+
+  /billing/subscription:
+    get:
+      tags: [Billing]
+      summary: Assinatura atual
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+      responses:
+        '200':
+          description: Subscription e flag stripe_configured
+
+  /billing/plans:
+    get:
+      tags: [Billing]
+      summary: Planos disponíveis
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Plan'
+
+  /billing/checkout:
+    post:
+      tags: [Billing]
+      summary: Iniciar checkout Stripe
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [plan_slug]
+              properties:
+                plan_slug:
+                  type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  checkout_url:
+                    type: string
+                    format: uri
+
+  /billing/portal:
+    post:
+      tags: [Billing]
+      summary: Portal de billing Stripe
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  portal_url:
+                    type: string
+                    format: uri
+
+  /lgpd/retention:
+    get:
+      tags: [LGPD]
+      summary: Política de retenção
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  days:
+                    type: integer
+                  auto_purge:
+                    type: boolean
+                  description:
+                    type: string
+
+  /lgpd/export:
+    post:
+      tags: [LGPD]
+      summary: Solicitar exportação de dados
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+      responses:
+        '202':
+          description: Exportação enfileirada
+
+  /lgpd/exports/{export}:
+    get:
+      tags: [LGPD]
+      summary: Status da exportação
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+        - name: export
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Status e download_url quando pronto
+
+  /lgpd/exports/{export}/download:
+    get:
+      tags: [LGPD]
+      summary: Baixar exportação
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+        - name: export
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Arquivo JSON
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /lgpd/account-deletion:
+    post:
+      tags: [LGPD]
+      summary: Solicitar exclusão de conta
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  maxLength: 1000
+      responses:
+        '202':
+          description: Pedido registrado
+
+  /webhooks/settings:
+    get:
+      tags: [Webhooks]
+      summary: Configuração de webhooks de saída
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookSettings'
+    put:
+      tags: [Webhooks]
+      summary: Atualizar webhooks
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                webhook_url:
+                  type: string
+                  format: uri
+                  nullable: true
+                webhook_events:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Atualizado
+
+  /webhooks/test:
+    post:
+      tags: [Webhooks]
+      summary: Testar webhook de saída
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  status:
+                    type: integer
+
+  /contacts:
+    get:
+      tags: [Contacts]
+      summary: Listar contatos
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paginado
+    post:
+      tags: [Contacts]
+      summary: Criar contato
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContactCreate'
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contact'
+
+  /contacts/{contact}:
+    parameters:
+      - $ref: '#/components/parameters/XTenant'
+      - name: contact
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Contacts]
+      summary: Obter contato
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contact'
+    put:
+      tags: [Contacts]
+      summary: Atualizar contato
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContactCreate'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Contact'
+    delete:
+      tags: [Contacts]
+      summary: Excluir contato
+      responses:
+        '204':
+          description: Excluído
+
+  /conversations:
+    get:
+      tags: [Conversations]
+      summary: Listar conversas
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+        - name: twin_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Paginado
+
+  /conversations/{conversation}:
+    get:
+      tags: [Conversations]
+      summary: Detalhe da conversa com mensagens
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+        - name: conversation
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Conversa e até 500 mensagens
+
+  /train/trigger:
+    post:
+      tags: [Train]
+      summary: Disparar job de treino (DNA/reindex)
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [twin_id, type]
+              properties:
+                twin_id:
+                  type: string
+                  format: uuid
+                type:
+                  type: string
+                  enum: [dna_extract, reindex, incremental]
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrainingJob'
+
+  /train/jobs/{job}:
+    get:
+      tags: [Train]
+      summary: Status do job de treino
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+        - name: job
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrainingJob'
+
+  /timeline:
+    get:
+      tags: [Timeline]
+      summary: Linha do tempo de eventos
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+        - name: twin_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        date:
+                          type: string
+                        title:
+                          type: string
+                        type:
+                          type: string
+                        meta:
+                          type: object
+
+  /api-keys:
+    get:
+      tags: [API Keys]
+      summary: Listar chaves de API
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ApiKey'
+    post:
+      tags: [API Keys]
+      summary: Criar chave de API
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  maxLength: 255
+                scopes:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  key:
+                    type: string
+                  prefix:
+                    type: string
+
+  /api-keys/{apiKey}:
+    delete:
+      tags: [API Keys]
+      summary: Revogar chave
+      parameters:
+        - $ref: '#/components/parameters/XTenant'
+        - name: apiKey
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Revogada
+
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
+      bearerFormat: Sanctum
+      description: Token obtido via POST /login
     apiKey:
       type: apiKey
       in: header
       name: X-Api-Key
+      description: Chave de API da organização (alternativa ao Bearer)
+
+  parameters:
+    XTenant:
+      name: X-Tenant
+      in: header
+      required: true
+      description: UUID da organização (tenant). Obrigatório em rotas de tenant.
+      schema:
+        type: string
+        format: uuid
+    TwinId:
+      name: twin
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    SuggestionId:
+      name: suggestion
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    Unauthorized:
+      description: Token ausente ou inválido
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            message: Unauthenticated.
+    Forbidden:
+      description: Sem permissão para o recurso
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ForbiddenPlan:
+      description: Limite do plano ou recurso não disponível no plano
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/PlanError'
+          examples:
+            twins_limit:
+              value:
+                message: Limite de twins do plano atingido. Faça upgrade para criar mais.
+                code: plan_twins_limit
+            seller_mode:
+              value:
+                message: Modo vendedor disponível apenas nos planos Pro e Business.
+                code: plan_seller_mode
+            messages_limit:
+              value:
+                message: Limite mensal de mensagens atingido para o seu plano.
+                code: plan_messages_limit
+    ValidationError:
+      description: Erro de validação
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationError'
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+
+    PlanError:
+      type: object
+      properties:
+        message:
+          type: string
+        code:
+          type: string
+          enum:
+            - plan_twins_limit
+            - plan_seller_mode
+            - plan_messages_limit
+
+    ValidationError:
+      type: object
+      properties:
+        message:
+          type: string
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+        two_factor_code:
+          type: string
+          description: Obrigatório se 2FA estiver ativo
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: '#/components/schemas/User'
+        organization:
+          $ref: '#/components/schemas/Organization'
+          nullable: true
+        organizations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Organization'
+
+    TwoFactorRequired:
+      type: object
+      properties:
+        two_factor_required:
+          type: boolean
+          const: true
+        message:
+          type: string
+
+    RegisterRequest:
+      type: object
+      required: [name, email, password, password_confirmation, organization_name]
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        password_confirmation:
+          type: string
+        organization_name:
+          type: string
+          maxLength: 255
+
+    MeResponse:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        organization:
+          $ref: '#/components/schemas/Organization'
+          nullable: true
+        organizations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Organization'
+        two_factor_enabled:
+          type: boolean
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+
+    Organization:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        role:
+          type: string
+
+    Twin:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        intensity:
+          type: integer
+          minimum: 1
+          maximum: 4
+        seller_mode:
+          type: boolean
+        vertical:
+          type: string
+          nullable: true
+        status:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    TwinDetail:
+      allOf:
+        - $ref: '#/components/schemas/Twin'
+        - type: object
+          properties:
+            active_dna:
+              type: object
+              nullable: true
+              properties:
+                version:
+                  type: string
+                payload:
+                  type: object
+
+    TwinCreate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+        intensity:
+          type: integer
+          minimum: 1
+          maximum: 4
+          default: 2
+        seller_mode:
+          type: boolean
+          default: false
+        vertical:
+          type: string
+          maxLength: 64
+
+    TwinUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+        intensity:
+          type: integer
+          minimum: 1
+          maximum: 4
+        seller_mode:
+          type: boolean
+        vertical:
+          type: string
+        status:
+          type: string
+          maxLength: 32
+
+    PaginatedTwins:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Twin'
+        current_page:
+          type: integer
+        last_page:
+          type: integer
+        per_page:
+          type: integer
+        total:
+          type: integer
+
+    TwinStats:
+      type: object
+      properties:
+        twin_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        dna_version:
+          type: string
+        similarity_score:
+          type: number
+          nullable: true
+        messages_indexed:
+          type: integer
+        radar:
+          type: array
+          items:
+            type: object
+            properties:
+              trait:
+                type: string
+              value:
+                type: number
+        suggestions:
+          type: object
+          properties:
+            total:
+              type: integer
+            accepted:
+              type: integer
+            accept_rate:
+              type: number
+              nullable: true
+
+    ImportBatch:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        twin_id:
+          type: string
+          format: uuid
+        consent_id:
+          type: integer
+        source:
+          type: string
+        status:
+          type: string
+          enum: [queued, processing, completed, failed]
+        total_messages:
+          type: integer
+        processed_messages:
+          type: integer
+        metadata:
+          type: object
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    ConsentCreate:
+      type: object
+      required: [type, text_version]
+      properties:
+        type:
+          type: string
+          enum: [import, training, fine_tune]
+        text_version:
+          type: string
+          maxLength: 64
+          description: Versão do texto de consentimento exibido ao usuário
+
+    ConsentRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+        organization_id:
+          type: string
+          format: uuid
+        user_id:
+          type: integer
+        type:
+          type: string
+        text_version:
+          type: string
+        accepted_at:
+          type: string
+          format: date-time
+
+    SuggestRequest:
+      type: object
+      required: [twin_id, text]
+      properties:
+        twin_id:
+          type: string
+          format: uuid
+        text:
+          type: string
+          maxLength: 10000
+        contact_id:
+          type: string
+          format: uuid
+        conversation_id:
+          type: string
+          format: uuid
+        intensity:
+          type: integer
+          minimum: 1
+          maximum: 4
+        seller_mode:
+          type: boolean
+        confidence_threshold:
+          type: number
+          minimum: 0
+          maximum: 1
+
+    SuggestResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        suggested_text:
+          type: string
+        suggestion:
+          type: string
+        score:
+          type: number
+          nullable: true
+        confidence:
+          type: number
+          nullable: true
+        auto_send_recommended:
+          type: boolean
+          nullable: true
+        score_breakdown:
+          type: object
+          nullable: true
+        intensity:
+          type: integer
+        seller_mode:
+          type: boolean
+        status:
+          type: string
+        metadata:
+          type: object
+
+    SuggestionMetrics:
+      type: object
+      properties:
+        total:
+          type: integer
+        pending:
+          type: integer
+        accepted:
+          type: integer
+        sent:
+          type: integer
+        rejected:
+          type: integer
+        accept_rate:
+          type: number
+          nullable: true
+
+    SuggestionExplain:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        score:
+          type: number
+          nullable: true
+        factors:
+          type: array
+          items:
+            type: object
+            properties:
+              key:
+                type: string
+              label:
+                type: string
+              value:
+                type: number
+              explanation:
+                type: string
+        summary:
+          type: string
+
+    ChannelCredential:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        twin_id:
+          type: string
+          format: uuid
+        channel:
+          type: string
+          enum: [whatsapp, telegram, slack, discord]
+        is_active:
+          type: boolean
+        reply_mode:
+          type: string
+          enum: [assistant, copilot, approval, auto]
+        confidence_threshold:
+          type: number
+        webhook_token:
+          type: string
+          description: Token mascarado
+        webhook_url:
+          type: string
+          format: uri
+          description: URL de ingress para a plataforma configurar
+        created_at:
+          type: string
+          format: date-time
+
+    ChannelCredentialCreate:
+      type: object
+      required: [twin_id, channel, credentials]
+      properties:
+        twin_id:
+          type: string
+          format: uuid
+        channel:
+          type: string
+          enum: [whatsapp, telegram, slack, discord]
+        credentials:
+          type: object
+          description: |
+            Campos obrigatórios por canal:
+            - whatsapp: phone_number_id, access_token, verify_token, app_secret
+            - telegram: bot_token
+            - slack: bot_token, signing_secret
+            - discord: bot_token, public_key
+        reply_mode:
+          type: string
+          enum: [assistant, copilot, approval, auto]
+        confidence_threshold:
+          type: number
+          minimum: 0
+          maximum: 1
+
+    ChannelMetrics:
+      type: object
+      properties:
+        twin_id:
+          type: string
+          format: uuid
+          nullable: true
+        pending:
+          type: integer
+        sent_today:
+          type: integer
+        avg_response_time_seconds:
+          type: integer
+          nullable: true
+        accept_rate_7d:
+          type: number
+          nullable: true
+
+    PlanSummary:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        seller_mode:
+          type: boolean
+        twins_limit:
+          type: integer
+        messages_per_month:
+          type: integer
+
+    Plan:
+      type: object
+      properties:
+        id:
+          type: integer
+        slug:
+          type: string
+        name:
+          type: string
+        price_monthly:
+          type: number
+        twins_limit:
+          type: integer
+        seller_mode:
+          type: boolean
+
+    WebhookSettings:
+      type: object
+      properties:
+        webhook_url:
+          type: string
+          format: uri
+          nullable: true
+        webhook_events:
+          type: array
+          items:
+            type: string
+        enabled:
+          type: boolean
+
+    Contact:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        display_name:
+          type: string
+        channel:
+          type: string
+        external_id:
+          type: string
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+        preferred_tone:
+          type: string
+          nullable: true
+
+    ContactCreate:
+      type: object
+      required: [display_name]
+      properties:
+        display_name:
+          type: string
+          maxLength: 255
+        channel:
+          type: string
+          maxLength: 32
+        external_id:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        preferred_tone:
+          type: string
+
+    Playbook:
+      type: object
+      properties:
+        id:
+          type: integer
+        twin_id:
+          type: string
+          format: uuid
+        intent:
+          type: string
+        vertical:
+          type: string
+        template:
+          type: string
+        usage_count:
+          type: integer
+
+    PlaybookCreate:
+      type: object
+      required: [intent, template]
+      properties:
+        intent:
+          type: string
+          maxLength: 32
+        vertical:
+          type: string
+          maxLength: 64
+        template:
+          type: string
+        variables:
+          type: object
+
+    TrainingJob:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        twin_id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [dna_extract, reindex, incremental]
+        status:
+          type: string
+          enum: [queued, processing, completed, failed]
+        result:
+          type: object
+          nullable: true
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    ApiKey:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        key_prefix:
+          type: string
+        scopes:
+          type: array
+          items:
+            type: string
+        last_used_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
