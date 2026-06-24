@@ -1,6 +1,9 @@
 /**
  * Ponte: lê credenciais do localStorage do painel TWIN.
- * Notifica a extensão quando há sessão ativa ou quando o usuário faz login/logout.
+ * Notifica a extensão quando há sessão ativa ao carregar a página.
+ *
+ * Nota: content scripts não interceptam setItem da página (world isolado).
+ * Login na mesma aba exige reimportar via popup ou recarregar após login.
  */
 const TOKEN_KEY = "twin_token";
 const ORG_KEY = "twin_organization_id";
@@ -35,31 +38,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   return true;
 });
 
-// Sessão disponível ao carregar a página
 if (readAuth().token) {
   notifyExtension();
 }
 
-// Login/logout/troca de org em outra aba
+// Login/logout/troca de org em outra aba do painel
 window.addEventListener("storage", (e) => {
   if (e.key === TOKEN_KEY || e.key === ORG_KEY) {
     notifyExtension();
   }
 });
-
-// SPA: observa mudanças no localStorage da mesma aba (patch leve)
-const nativeSetItem = localStorage.setItem.bind(localStorage);
-localStorage.setItem = function patchedSetItem(key, value) {
-  nativeSetItem(key, value);
-  if (key === TOKEN_KEY || key === ORG_KEY) {
-    notifyExtension();
-  }
-};
-
-const nativeRemoveItem = localStorage.removeItem.bind(localStorage);
-localStorage.removeItem = function patchedRemoveItem(key) {
-  nativeRemoveItem(key);
-  if (key === TOKEN_KEY || key === ORG_KEY) {
-    notifyExtension();
-  }
-};
