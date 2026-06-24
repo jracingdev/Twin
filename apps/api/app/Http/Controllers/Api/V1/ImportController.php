@@ -45,7 +45,30 @@ class ImportController extends Controller
         $file = $request->file('file');
         $hash = hash_file('sha256', $file->getRealPath());
         $disk = config('twin.import_disk', 'local');
-        $path = $file->store("imports/{$data['twin_id']}", $disk);
+
+        if ($data['source'] === 'zip' && ! class_exists(\ZipArchive::class)) {
+            return response()->json([
+                'message' => 'Extensão PHP zip não instalada. Ative zip no aaPanel → PHP 8.2 → Extensions.',
+            ], 503);
+        }
+
+        try {
+            $path = $file->store("imports/{$data['twin_id']}", $disk);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'message' => 'Falha ao salvar o arquivo. Verifique permissões em storage/ (usuário www).',
+                'code' => 'import_storage_failed',
+            ], 500);
+        }
+
+        if (! $path) {
+            return response()->json([
+                'message' => 'Falha ao salvar o arquivo no disco configurado.',
+                'code' => 'import_storage_failed',
+            ], 500);
+        }
 
         $metadata = $this->buildChannelMetadata($data);
 
@@ -80,7 +103,7 @@ class ImportController extends Controller
             'metadata' => $metadata ?: null,
         ]);
 
-        ProcessImportBatchJob::dispatch($batch->id);
+        ProcessImportBatchJob::dispatch($batch->id)->afterResponse();
 
         return response()->json($batch, 202);
     }

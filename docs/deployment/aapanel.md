@@ -597,6 +597,7 @@ Agende no aaPanel → **Cron** (ex.: 03:00 diário).
 | 502 na API | php-fpm ativo? `storage/` gravável? |
 | `tenant_not_provisioned` | `php artisan tenants:provision` |
 | Motor IA indisponível no import | Supervisor `twin-ai-engine`; nginx `/ai-engine/` no site web |
+| `POST /imports` 500 | `QUEUE_CONNECTION=redis` + Supervisor `twin-queue`; `chown -R www:www apps/api/storage`; extensão PHP **zip**; `tail storage/logs/laravel.log` |
 | Fila não processa | `QUEUE_CONNECTION=redis`, Redis ativo, Supervisor `twin-queue` |
 | `pdo_mysql` ausente | aaPanel → PHP → Install extensions → **reboot** |
 | CORS no login | Veja [CORS (preflight OPTIONS)](#cors-preflight-options) |

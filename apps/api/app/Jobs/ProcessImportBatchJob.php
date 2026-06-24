@@ -84,8 +84,6 @@ class ProcessImportBatchJob implements ShouldQueue
                     'error' => $e->getMessage(),
                 ]),
             ]);
-
-            throw $e;
         }
     }
 }
