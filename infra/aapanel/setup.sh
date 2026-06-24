@@ -83,14 +83,17 @@ PINECONE_API_KEY=
 EOF
 fi
 
-# --- .env produção web (build) ---
+# --- .env produção web (build) — criar antes de trocar usuário (ubuntu costuma ser dono do clone) ---
 if [[ ! -f "$WEB/.env.production.local" ]]; then
   API_URL="$(grep '^APP_URL=' "$API/.env" | cut -d= -f2- || echo 'https://api.twin.app.br')"
   FRONT="$(grep '^FRONTEND_URL=' "$API/.env" | cut -d= -f2- || echo 'https://twin.app.br')"
-  cat > "$WEB/.env.production.local" <<EOF
+  if ! cat > "$WEB/.env.production.local" <<EOF
 NEXT_PUBLIC_API_URL=${API_URL}/api/v1
 NEXT_PUBLIC_AI_ENGINE_URL=${FRONT}/ai-engine
 EOF
+  then
+    die "Não foi possível criar $WEB/.env.production.local — rode o setup como ubuntu (não sudo -u www) ou: sudo chown -R ubuntu:www $WEB"
+  fi
   log "Criado $WEB/.env.production.local"
 fi
 
