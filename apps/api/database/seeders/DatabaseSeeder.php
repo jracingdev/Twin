@@ -36,14 +36,14 @@ class DatabaseSeeder extends Seeder
             $org->users()->attach($user->id, ['role' => 'owner']);
         }
 
-        $freePlan = Plan::where('slug', 'free')->first();
-        if ($freePlan) {
-            Subscription::firstOrCreate(
+        $businessPlan = Plan::where('slug', 'business')->first();
+        if ($businessPlan) {
+            Subscription::updateOrCreate(
+                ['organization_id' => $org->id],
                 [
-                    'organization_id' => $org->id,
-                    'plan_id' => $freePlan->id,
+                    'plan_id' => $businessPlan->id,
+                    'stripe_status' => 'active',
                 ],
-                ['stripe_status' => 'active'],
             );
         }
     }

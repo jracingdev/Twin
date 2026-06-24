@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Message;
+use App\Models\Organization;
 use App\Models\Plan;
 use App\Models\ResponseSuggestion;
 use App\Models\Subscription;
@@ -12,6 +13,11 @@ class PlanFeaturesService
 {
     public function currentPlan(string $organizationId): Plan
     {
+        $demoPlan = $this->demoPlanIfApplicable($organizationId);
+        if ($demoPlan) {
+            return $demoPlan;
+        }
+
         $subscription = Subscription::where('organization_id', $organizationId)
             ->whereIn('stripe_status', ['active', 'trialing'])
             ->with('plan')
@@ -78,5 +84,16 @@ class PlanFeaturesService
             'twins_limit' => $plan->twins_limit,
             'messages_per_month' => $plan->messages_per_month,
         ];
+    }
+
+    /** Demo org sempre usa plano Business (ambiente de testes). */
+    private function demoPlanIfApplicable(string $organizationId): ?Plan
+    {
+        $org = Organization::find($organizationId);
+        if ($org?->slug !== 'demo') {
+            return null;
+        }
+
+        return Plan::where('slug', 'business')->first();
     }
 }

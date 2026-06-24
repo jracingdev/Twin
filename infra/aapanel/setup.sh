@@ -73,7 +73,7 @@ if [[ ! -f "$AI/.env" ]]; then
   LARAVEL_URL="$(grep '^APP_URL=' "$API/.env" | cut -d= -f2- || echo 'https://api.twin.app.br')"
   cat > "$AI/.env" <<EOF
 REDIS_URL=redis://127.0.0.1:6379/0
-AI_ENGINE_SECRET=${SECRET}
+AI_ENGINE_SECRET="${SECRET}"
 LARAVEL_API_URL=${LARAVEL_URL}
 PINECONE_INDEX=twin-integrated
 LLM_PROVIDER=openai
@@ -167,6 +167,7 @@ fi
 source "$AI/.venv/bin/activate"
 pip install -q --upgrade pip
 pip install -q -r "$AI/requirements.txt"
+pip uninstall -y pinecone-plugin-inference pinecone-plugin-records 2>/dev/null || true
 if [[ -d "$PARSERS" ]]; then
   pip install -q -e "$PARSERS"
 fi
