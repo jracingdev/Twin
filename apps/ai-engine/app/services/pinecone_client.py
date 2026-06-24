@@ -10,6 +10,15 @@ _pc_index = None
 _pc_unavailable = False
 
 
+def _connect_index(pc: Any):
+    if settings.pinecone_index_host:
+        host = settings.pinecone_index_host.removeprefix("https://").removeprefix("http://")
+        return pc.Index(host=host)
+    if hasattr(pc, "index"):
+        return pc.index(settings.pinecone_index)
+    return pc.Index(settings.pinecone_index)
+
+
 def get_index():
     global _pc_index, _pc_unavailable
     if _pc_unavailable:
@@ -21,11 +30,7 @@ def get_index():
             from pinecone import Pinecone
 
             pc = Pinecone(api_key=settings.pinecone_api_key)
-            if settings.pinecone_index_host:
-                host = settings.pinecone_index_host.removeprefix("https://").removeprefix("http://")
-                _pc_index = pc.Index(host=host)
-            else:
-                _pc_index = pc.Index(settings.pinecone_index)
+            _pc_index = _connect_index(pc)
         except Exception as exc:
             logger.warning("Pinecone indisponível (ingest continua sem indexação): %s", exc)
             _pc_unavailable = True
@@ -37,10 +42,34 @@ def namespace(tenant_id: str, twin_id: str, kind: str) -> str:
     return f"t_{tenant_id}_tw_{twin_id}_{kind}"
 
 
+def _hits_from_response(response: Any) -> list[dict]:
+    if hasattr(response, "result") and hasattr(response.result, "hits"):
+        out: list[dict] = []
+        for hit in response.result.hits:
+            fields = dict(hit.fields) if getattr(hit, "fields", None) else {}
+            if getattr(hit, "id", None):
+                fields.setdefault("_id", hit.id)
+            if getattr(hit, "score", None) is not None:
+                fields["score"] = hit.score
+            out.append(fields)
+        return out
+    if isinstance(response, dict):
+        hits = response.get("result", {}).get("hits", [])
+        return [h.get("fields", h) if isinstance(h, dict) else h for h in hits]
+    return []
+
+
 def upsert_records(tenant_id: str, twin_id: str, kind: str, records: list[dict[str, Any]]) -> int:
+    if not records:
+        return 0
     index = get_index()
     if index is None:
         return len(records)
+    if not hasattr(index, "upsert_records"):
+        raise RuntimeError(
+            "pinecone SDK >= 6 é necessário para índices com embedding integrado. "
+            "Execute: pip install 'pinecone>=6.0.0' no venv do ai-engine."
+        )
     ns = namespace(tenant_id, twin_id, kind)
     index.upsert_records(namespace=ns, records=records)
     return len(records)
@@ -58,15 +87,24 @@ def search(
     if index is None:
         return []
     ns = namespace(tenant_id, twin_id, kind)
-    q: dict = {
+
+    if hasattr(index, "search"):
+        kwargs: dict[str, Any] = {
+            "namespace": ns,
+            "top_k": top_k,
+            "inputs": {"text": query_text},
+        }
+        if filter_meta:
+            kwargs["filter"] = filter_meta
+        return _hits_from_response(index.search(**kwargs))
+
+    query: dict[str, Any] = {
         "inputs": {"text": query_text},
         "top_k": top_k,
     }
     if filter_meta:
-        q["filter"] = filter_meta
-    result = index.search_records(namespace=ns, query=q)
-    hits = result.get("result", {}).get("hits", [])
-    return [h.get("fields", h) for h in hits]
+        query["filter"] = filter_meta
+    return _hits_from_response(index.search_records(namespace=ns, query=query))
 
 
 def delete_twin_namespaces(tenant_id: str, twin_id: str) -> None:
@@ -75,7 +113,9 @@ def delete_twin_namespaces(tenant_id: str, twin_id: str) -> None:
         return
     for kind in ("msgs", "memory", "seller", "contacts"):
         try:
-            index.delete_namespace(namespace=namespace(tenant_id, twin_id, kind))
+            ns = namespace(tenant_id, twin_id, kind)
+            if hasattr(index, "delete_namespace"):
+                index.delete_namespace(namespace=ns)
         except Exception:
             pass
 
@@ -110,7 +150,7 @@ def ensure_index_exists() -> dict:
         return {
             "status": "missing",
             "name": name,
-            "hint": "Crie o índice no console Pinecone (integrated embeddings) ou atualize pinecone>=6.",
+            "hint": "Crie o índice no console Pinecone (integrated embeddings) ou pip install 'pinecone>=6'.",
         }
 
     create(
