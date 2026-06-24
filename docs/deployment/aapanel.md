@@ -449,9 +449,11 @@ Programas:
 
 | Programa | Comando |
 |----------|---------|
-| `twin-queue` | `php artisan queue:work redis` (×2) |
+| `twin-queue` | `php artisan queue:work redis --queue=default,channel` (×2) |
 | `twin-ai-engine` | `uvicorn app.main:app --host 127.0.0.1 --port 8100` |
 | `twin-celery` | `celery -A app.celery_app worker` |
+
+> **Canais live (WhatsApp, Telegram, etc.):** `ProcessChannelMessageJob` e `SendChannelMessageJob` usam a fila Redis **`channel`**. Se o worker processar só `default`, webhooks respondem `ok` mas nenhuma sugestão ou resposta é gerada. Guia completo: [docs/product/channels.md](../product/channels.md).
 
 ### Laravel Horizon (opcional)
 
@@ -624,7 +626,8 @@ Agende no aaPanel → **Cron** (ex.: 03:00 diário).
 | Motor IA indisponível no import | Supervisor `twin-ai-engine`; nginx `/ai-engine/` no site web |
 | `POST /imports` 500 | `QUEUE_CONNECTION=redis` + Supervisor `twin-queue`; `chown -R www:www apps/api/storage`; extensão PHP **zip**; `tail storage/logs/laravel.log` |
 | Import **Falhou** — `401 Unauthorized` | Veja [AI_ENGINE_SECRET e caracteres especiais](#ai_engine_secret-e-caracteres-especiais) |
-| Fila não processa | `QUEUE_CONNECTION=redis`, Redis ativo, Supervisor `twin-queue` |
+| Fila não processa | `QUEUE_CONNECTION=redis`, Redis ativo, Supervisor `twin-queue` com `--queue=default,channel` |
+| Canal live sem resposta | Worker sem fila `channel` — veja [channels.md](../product/channels.md) e reinicie `twin-queue` |
 | `NOAUTH Authentication required` (Redis) | Veja [Redis com senha (aaPanel)](#redis-com-senha-aapanel) |
 | `supervisorctl: could not read config file` | Supervisor não instalado — veja §7 ou `apt install supervisor` |
 | `pdo_mysql` ausente | aaPanel → PHP → Install extensions → **reboot** |
@@ -851,6 +854,7 @@ pm2 save
 
 ## Referências
 
+- [channels.md](../product/channels.md) — canais live (webhook, modos, WhatsApp/Telegram)
 - [mysql-server.md](./mysql-server.md) — banco landlord/tenant
 - [vps-quickstart.md](./vps-quickstart.md) — deploy alternativo com Docker
 - [local-windows.md](./local-windows.md) — desenvolvimento local

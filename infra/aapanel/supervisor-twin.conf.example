@@ -8,7 +8,7 @@ programs=twin-queue,twin-ai-engine,twin-celery
 
 ; --- Fila Laravel (use horizon SE php artisan horizon:install já foi publicado) ---
 [program:twin-queue]
-command=/www/server/php/82/bin/php /www/wwwroot/twin.app.br/apps/api/artisan queue:work redis --sleep=3 --tries=3 --max-time=3600
+command=/www/server/php/82/bin/php /www/wwwroot/twin.app.br/apps/api/artisan queue:work redis --queue=default,channel --sleep=3 --tries=3 --max-time=3600
 directory=/www/wwwroot/twin.app.br/apps/api
 autostart=true
 autorestart=true

@@ -106,11 +106,15 @@ No emulador Android use `10.0.2.2` em vez de `localhost`.
 - OpenAPI: `GET http://127.0.0.1:8080/api/v1/docs/openapi.yaml`
 - UI web: `http://127.0.0.1:3000/docs`
 
+## Canais live (WhatsApp, Telegram, Slack, Discord)
+
+Guia de produto e setup em produção: [docs/product/channels.md](docs/product/channels.md) — configure em `/settings/channels`, aprove respostas em `/inbox`.
+
 ## Checklist produção
 
 - [ ] `APP_ENV=production`, `APP_DEBUG=false`
 - [ ] MySQL: `twin_landlord` + `php artisan tenants:provision` (ver [mysql-server.md](docs/deployment/mysql-server.md))
-- [ ] `QUEUE_CONNECTION=redis` + `queue:work` / Horizon
+- [ ] `QUEUE_CONNECTION=redis` + `queue:work redis --queue=default,channel` / Horizon
 - [ ] `AI_ENGINE_SECRET` forte e rotacionado
 - [ ] Stripe live keys + webhook endpoint público
 - [ ] S3/MinIO para imports
