@@ -88,11 +88,18 @@ class TwinApi {
     return jsonDecode(res.body) as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> feedback(String suggestionId, String status) async {
+  Future<Map<String, dynamic>> feedback(
+    String suggestionId,
+    String status, {
+    String? editedText,
+  }) async {
     final res = await http.patch(
       Uri.parse('$baseUrl/suggestions/$suggestionId'),
       headers: _headers,
-      body: jsonEncode({'status': status}),
+      body: jsonEncode({
+        'status': status,
+        if (editedText != null && editedText.isNotEmpty) 'edited_text': editedText,
+      }),
     );
     if (res.statusCode >= 400) throw Exception(_parseError(res));
     return jsonDecode(res.body) as Map<String, dynamic>;

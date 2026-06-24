@@ -1,0 +1,48 @@
+{
+  "manifest_version": 3,
+  "name": "TWIN Copilot — WhatsApp Web",
+  "version": "0.1.0",
+  "description": "Sugestões de resposta com seu twin TWIN direto no WhatsApp Web (modo copiloto).",
+  "permissions": ["storage", "activeTab", "tabs"],
+  "host_permissions": [
+    "https://web.whatsapp.com/*",
+    "https://api.twin.app.br/*",
+    "https://twin.app.br/*",
+    "https://*.twin.app.br/*",
+    "http://localhost:8080/*",
+    "http://127.0.0.1:8080/*",
+    "http://localhost:3000/*",
+    "http://127.0.0.1:3000/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://web.whatsapp.com/*"],
+      "js": ["content.js"],
+      "css": ["sidebar.css"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://twin.app.br/*",
+        "https://*.twin.app.br/*",
+        "http://localhost:3000/*",
+        "http://127.0.0.1:3000/*"
+      ],
+      "js": ["twin-auth-bridge.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "TWIN Copilot"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

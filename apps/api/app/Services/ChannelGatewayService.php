@@ -2,10 +2,11 @@
 
 namespace App\Services;
 
+use App\Jobs\ProcessChannelMessageJob;
 use App\Models\Contact;
 use App\Models\Conversation;
 use App\Models\Message;
-use App\Jobs\ProcessChannelMessageJob;
+use Illuminate\Support\Facades\Cache;
 
 class ChannelGatewayService
 {
@@ -21,11 +22,46 @@ class ChannelGatewayService
         string $organizationId
     ): void {
         $platformMessageId = $normalized['platform_meta']['message_id'] ?? null;
+        $lock = null;
 
-        if ($platformMessageId && $this->isDuplicatePlatformMessage($twinId, $platformMessageId)) {
-            return;
+        if ($platformMessageId) {
+            if ($this->isDuplicatePlatformMessage($twinId, $platformMessageId)) {
+                return;
+            }
+
+            $lock = Cache::lock("channel_msg:{$twinId}:{$platformMessageId}", 30);
+            if (! $lock->get()) {
+                return;
+            }
+
+            if ($this->isDuplicatePlatformMessage($twinId, $platformMessageId)) {
+                $lock->release();
+
+                return;
+            }
         }
 
+        try {
+            $this->persistAndQueue(
+                $twinId,
+                $channel,
+                $normalized,
+                $organizationId
+            );
+        } finally {
+            $lock?->release();
+        }
+    }
+
+    /**
+     * @param  array{external_id: string, display_name: string, text: string, platform_meta: array}  $normalized
+     */
+    private function persistAndQueue(
+        string $twinId,
+        string $channel,
+        array $normalized,
+        string $organizationId
+    ): void {
         $contact = Contact::firstOrCreate(
             ['channel' => $channel, 'external_id' => $normalized['external_id']],
             ['display_name' => $normalized['display_name']]

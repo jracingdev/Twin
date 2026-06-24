@@ -526,6 +526,16 @@ Imports e uploads usam `storage/` — o usuário `www` (php-fpm) precisa escreve
 
 ## 11. Atualização (deploy contínuo)
 
+Script consolidado (recomendado após `git pull`):
+
+```bash
+cd /www/wwwroot/twin.app.br
+chmod +x scripts/deploy/post-pull.sh
+./scripts/deploy/post-pull.sh
+```
+
+Equivalente manual:
+
 ```bash
 cd /www/wwwroot/twin.app.br
 git pull origin main
@@ -538,6 +548,8 @@ cd apps/api
 supervisorctl restart twin-queue:* twin-ai-engine twin-celery
 pm2 restart twin-web
 ```
+
+> **Canais live:** confirme que `twin-queue` usa `--queue=default,channel` (ver `infra/aapanel/supervisor-twin.conf.example`).
 
 ---
 

@@ -115,7 +115,9 @@ export default function SettingsChannelsPage() {
           ? { confidence_threshold: confidenceThreshold }
           : {}),
       });
-      setMsg(`Canal ${created.channel} conectado.`);
+      setMsg(
+        `Canal ${created.channel} conectado. Webhook (copie agora): ${created.webhook_url}`
+      );
       setForm({});
       load();
     } catch (err) {

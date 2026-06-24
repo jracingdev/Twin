@@ -1,0 +1,222 @@
+/* TWIN Copilot sidebar — WhatsApp Web */
+
+body.twin-copilot-active {
+  margin-right: 320px !important;
+  transition: margin-right 0.2s ease;
+}
+
+#twin-copilot-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 320px;
+  height: 100vh;
+  z-index: 99999;
+  background: #0a0e14;
+  border-left: 1px solid rgba(0, 212, 255, 0.25);
+  color: #e8eef4;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.4);
+}
+
+#twin-copilot-panel.twin-collapsed {
+  width: 40px;
+  overflow: hidden;
+}
+
+#twin-copilot-panel.twin-collapsed .twin-body,
+#twin-copilot-panel.twin-collapsed .twin-sub {
+  display: none;
+}
+
+.twin-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(0, 212, 255, 0.15);
+  background: rgba(0, 212, 255, 0.05);
+}
+
+.twin-logo {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #00d4ff;
+}
+
+.twin-sub {
+  color: #8899aa;
+  font-size: 12px;
+}
+
+.twin-toggle {
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  color: #8899aa;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 4px;
+}
+
+.twin-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.twin-hint {
+  color: #8899aa;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.twin-source {
+  font-size: 11px;
+  color: #667788;
+  word-break: break-word;
+}
+
+.twin-btn {
+  border: 1px solid rgba(0, 212, 255, 0.35);
+  background: transparent;
+  color: #e8eef4;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.twin-btn:hover:not(:disabled) {
+  border-color: #00d4ff;
+  color: #00d4ff;
+}
+
+.twin-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.twin-btn-primary {
+  background: #00d4ff;
+  color: #0a0e14;
+  border-color: #00d4ff;
+  font-weight: 600;
+}
+
+.twin-btn-primary:hover:not(:disabled) {
+  background: #33ddff;
+  color: #0a0e14;
+}
+
+.twin-status {
+  font-size: 12px;
+  color: #8899aa;
+  min-height: 1.2em;
+}
+
+.twin-status-ok {
+  color: #6ee7a0;
+}
+
+.twin-status-err {
+  color: #f87171;
+}
+
+.twin-result.hidden,
+.twin-feedback.hidden {
+  display: none;
+}
+
+.twin-result label {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #667788;
+  margin-bottom: 4px;
+}
+
+.twin-suggestion {
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(0, 212, 255, 0.2);
+  border-radius: 6px;
+  color: #e8eef4;
+  padding: 8px;
+  resize: vertical;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.twin-meta {
+  margin-top: 8px;
+}
+
+.twin-score {
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.twin-score strong {
+  color: #00d4ff;
+}
+
+.twin-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.twin-breakdown-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #8899aa;
+}
+
+.twin-actions,
+.twin-feedback {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.twin-feedback {
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.twin-accept {
+  border-color: rgba(110, 231, 160, 0.4);
+  color: #6ee7a0;
+}
+
+.twin-reject {
+  border-color: rgba(248, 113, 113, 0.4);
+  color: #f87171;
+}
+
+@media (max-width: 900px) {
+  body.twin-copilot-active {
+    margin-right: 0 !important;
+  }
+
+  #twin-copilot-panel {
+    width: 100%;
+    height: 45vh;
+    top: auto;
+    bottom: 0;
+    border-left: none;
+    border-top: 1px solid rgba(0, 212, 255, 0.25);
+  }
+}

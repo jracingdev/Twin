@@ -231,10 +231,17 @@ Detalhes de deploy: [docs/deployment/aapanel.md](../deployment/aapanel.md).
 
 ---
 
+## Extensão Copilot (WhatsApp Web)
+
+Para atendimento pelo **WhatsApp Web** no navegador (sem Business API), use a extensão TWIN Copilot — leitura/injeção no DOM, modo copiloto. Guia completo (extensão + Business API): [whatsapp-copilot.md](./whatsapp-copilot.md).
+
+---
+
 ## Links úteis
 
 | Recurso | URL |
 |---------|-----|
+| WhatsApp Copilot + Business API | [whatsapp-copilot.md](./whatsapp-copilot.md) |
 | Configurar canais live | [twin.app.br/settings/channels](https://twin.app.br/settings/channels) |
 | Inbox (aprovar envios) | [twin.app.br/inbox](https://twin.app.br/inbox) |
 | Importar histórico para treino | [twin.app.br/import/channels](https://twin.app.br/import/channels) |

@@ -10,6 +10,7 @@ Gêmeo digital de comunicação — API Laravel, motor IA (FastAPI) e dashboard 
 | AI Engine | `apps/ai-engine` | 8000 |
 | Web | `apps/web` | 3000 |
 | Mobile | `apps/mobile` | — |
+| Extensão Copilot | `apps/browser-extension` | — (Chrome/Edge) |
 
 ## Início rápido (Windows)
 
@@ -109,6 +110,8 @@ No emulador Android use `10.0.2.2` em vez de `localhost`.
 ## Canais live (WhatsApp, Telegram, Slack, Discord)
 
 Guia de produto e setup em produção: [docs/product/channels.md](docs/product/channels.md) — configure em `/settings/channels`, aprove respostas em `/inbox`.
+
+**WhatsApp Web (copiloto no navegador):** extensão em `apps/browser-extension/` — guia em [docs/product/whatsapp-copilot.md](docs/product/whatsapp-copilot.md).
 
 ## Checklist produção
 

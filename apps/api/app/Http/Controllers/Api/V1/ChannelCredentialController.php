@@ -44,7 +44,7 @@ class ChannelCredentialController extends Controller
             'confidence_threshold' => $data['confidence_threshold'] ?? null,
         ]);
 
-        return response()->json($this->format($credential), 201);
+        return response()->json($this->format($credential, revealWebhook: true), 201);
     }
 
     public function update(Request $request, ChannelCredential $channelCredential): JsonResponse
@@ -80,8 +80,10 @@ class ChannelCredentialController extends Controller
         return response()->json(null, 204);
     }
 
-    private function format(ChannelCredential $c): array
+    private function format(ChannelCredential $c, bool $revealWebhook = false): array
     {
+        $token = $c->webhook_token;
+
         return [
             'id' => $c->id,
             'twin_id' => $c->twin_id,
@@ -89,10 +91,21 @@ class ChannelCredentialController extends Controller
             'is_active' => $c->is_active,
             'reply_mode' => $c->reply_mode ?? 'copilot',
             'confidence_threshold' => $c->confidence_threshold ?? 0.75,
-            'webhook_token' => $this->maskToken($c->webhook_token),
-            'webhook_url' => url("/api/webhooks/channel/{$c->channel}/{$c->webhook_token}"),
+            'webhook_token' => $revealWebhook ? $token : $this->maskToken($token),
+            'webhook_url' => $this->webhookUrl($c->channel, $token, $revealWebhook),
             'created_at' => $c->created_at,
         ];
+    }
+
+    private function webhookUrl(string $channel, ?string $token, bool $reveal): ?string
+    {
+        if (! $token) {
+            return null;
+        }
+
+        $pathToken = $reveal ? $token : $this->maskToken($token);
+
+        return url("/api/webhooks/channel/{$channel}/{$pathToken}");
     }
 
     private function authorizeCredential(ChannelCredential $credential): void
@@ -124,6 +137,21 @@ class ChannelCredentialController extends Controller
 
         if (! empty($missing)) {
             abort(422, 'Missing credentials fields: '.implode(', ', $missing));
+        }
+
+        $empty = [];
+        foreach ($required as $field) {
+            if (! isset($creds[$field]) || trim((string) $creds[$field]) === '') {
+                $empty[] = $field;
+            }
+        }
+
+        if (! empty($empty)) {
+            abort(422, 'Credentials fields cannot be empty: '.implode(', ', $empty));
+        }
+
+        if ($channel === 'whatsapp' && app()->environment('production') && empty($creds['app_secret'])) {
+            abort(422, 'app_secret is required for WhatsApp in production');
         }
     }
 }

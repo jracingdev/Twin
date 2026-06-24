@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TWIN Copilot — Configurações</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main>
+      <h1>TWIN Copilot</h1>
+      <p class="subtitle">WhatsApp Web — modo copiloto</p>
+
+      <form id="settings-form">
+        <label>
+          URL da API
+          <input type="url" id="apiUrl" placeholder="https://api.twin.app.br/api/v1" />
+        </label>
+
+        <label>
+          Token (Bearer)
+          <textarea id="token" rows="2" placeholder="Cole o token ou importe do painel TWIN"></textarea>
+        </label>
+
+        <label>
+          ID da organização (X-Tenant)
+          <input type="text" id="tenantId" placeholder="UUID da organização" />
+        </label>
+
+        <label>
+          Twin
+          <select id="twinId">
+            <option value="">— Selecione —</option>
+          </select>
+          <button type="button" id="refresh-twins" class="link-btn">Atualizar lista</button>
+        </label>
+
+        <div class="row">
+          <label class="half">
+            Intensidade (1–4)
+            <input type="number" id="intensity" min="1" max="4" value="2" />
+          </label>
+          <label class="half checkbox">
+            <input type="checkbox" id="sellerMode" />
+            Modo vendedor
+          </label>
+        </div>
+
+        <div class="actions">
+          <button type="button" id="import-auth" class="secondary">Importar do TWIN Web</button>
+          <button type="submit" class="primary">Salvar</button>
+        </div>
+      </form>
+
+      <p id="status" class="status" role="status"></p>
+
+      <footer>
+        <a href="https://twin.app.br/inbox" target="_blank" rel="noopener">Inbox TWIN</a>
+        ·
+        <a href="https://twin.app.br/settings/channels" target="_blank" rel="noopener">Canais</a>
+      </footer>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>
