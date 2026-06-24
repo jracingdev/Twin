@@ -573,6 +573,31 @@ No browser:
 
 Login demo (após seed): `admin@twin.local` / `password` — **altere em produção**.
 
+### Smoke test automatizado
+
+O script `scripts/deploy/smoke-test.sh` valida Supervisor (`twin-queue`, `twin-ai-engine`, `twin-celery`), PM2 `twin-web` (aviso se ausente), health da API e do AI Engine (direto e via proxy `/ai-engine/health`), ingest batch com `X-Internal-Secret` e conexão Pinecone (`get_index`). Não imprime segredos no stdout.
+
+```bash
+cd /www/wwwroot/twin.app.br
+chmod +x scripts/deploy/smoke-test.sh
+./scripts/deploy/smoke-test.sh
+```
+
+Teste completo com login, plano Business da org demo e sugestão (defina o UUID de um twin existente):
+
+```bash
+cd /www/wwwroot/twin.app.br
+SMOKE_EMAIL=admin@twin.local \
+SMOKE_PASSWORD=password \
+SMOKE_TENANT_ID=517160fe-f0e8-479e-86a4-0c63ca0f05d4 \
+SMOKE_TWIN_ID=<uuid-do-twin-demo> \
+./scripts/deploy/smoke-test.sh
+```
+
+Variáveis opcionais: `SMOKE_API_URL`, `SMOKE_WEB_URL`, `SMOKE_AI_URL`, `APP_DIR`.
+
+No Windows (dev local): `.\scripts\deploy\smoke-test.ps1` — versão leve contra `127.0.0.1:8080` / `127.0.0.1:8000`.
+
 ---
 
 ## 13. Backup
