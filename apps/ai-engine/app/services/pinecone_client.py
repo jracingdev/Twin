@@ -41,6 +41,31 @@ def get_index():
     return _pc_index
 
 
+def _prepare_record(record: dict[str, Any]) -> dict[str, Any]:
+    """Índices integrados podem mapear 'text' ou 'chunk_text' — enviamos ambos."""
+    prepared = dict(record)
+    content = (
+        prepared.get("chunk_text")
+        or prepared.get("text")
+        or prepared.get("body")
+        or ""
+    )
+    if content:
+        prepared["chunk_text"] = content
+        prepared["text"] = content
+    return prepared
+
+
+def _search_query_body(query_text: str, top_k: int, filter_meta: dict | None) -> dict[str, Any]:
+    body: dict[str, Any] = {
+        "inputs": {"text": query_text},
+        "top_k": top_k,
+    }
+    if filter_meta:
+        body["filter"] = filter_meta
+    return body
+
+
 def namespace(tenant_id: str, twin_id: str, kind: str) -> str:
     return f"t_{tenant_id}_tw_{twin_id}_{kind}"
 
@@ -76,7 +101,7 @@ def upsert_records(tenant_id: str, twin_id: str, kind: str, records: list[dict[s
     ns = namespace(tenant_id, twin_id, kind)
     total = 0
     for offset in range(0, len(records), UPSERT_BATCH_SIZE):
-        batch = records[offset : offset + UPSERT_BATCH_SIZE]
+        batch = [_prepare_record(r) for r in records[offset : offset + UPSERT_BATCH_SIZE]]
         index.upsert_records(namespace=ns, records=batch)
         total += len(batch)
     return total
@@ -94,25 +119,24 @@ def search(
     if index is None:
         return []
     ns = namespace(tenant_id, twin_id, kind)
+    query_body = _search_query_body(query_text, top_k, filter_meta)
 
     try:
         if hasattr(index, "search"):
-            kwargs: dict[str, Any] = {
-                "namespace": ns,
-                "top_k": top_k,
-                "inputs": {"text": query_text},
-            }
-            if filter_meta:
-                kwargs["filter"] = filter_meta
-            return _hits_from_response(index.search(**kwargs))
+            try:
+                return _hits_from_response(index.search(namespace=ns, query=query_body))
+            except TypeError:
+                return _hits_from_response(
+                    index.search(
+                        namespace=ns,
+                        inputs=query_body["inputs"],
+                        top_k=top_k,
+                        filter=filter_meta,
+                    )
+                )
 
-        query: dict[str, Any] = {
-            "inputs": {"text": query_text},
-            "top_k": top_k,
-        }
-        if filter_meta:
-            query["filter"] = filter_meta
-        return _hits_from_response(index.search_records(namespace=ns, query=query))
+        if hasattr(index, "search_records"):
+            return _hits_from_response(index.search_records(namespace=ns, query=query_body))
     except Exception as exc:
         logger.warning(
             "Pinecone search falhou (tenant=%s twin=%s kind=%s): %s",
