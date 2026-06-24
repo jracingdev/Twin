@@ -131,12 +131,15 @@ fi
 log "npm ci + build (web)..."
 (cd "$WEB" && "$NPM_BIN" ci && "$NPM_BIN" run build)
 
-# --- Python venv + AI engine (3.11–3.12; evitar python3 = 3.14 no Ubuntu 26) ---
+# --- Python venv + AI engine (3.10–3.13; evitar python3 = 3.14 no Ubuntu 26) ---
 detect_python() {
-  if [[ -n "${PYTHON_BIN:-}" && "$PYTHON_BIN" != "python3" ]] && command -v "$PYTHON_BIN" &>/dev/null; then
-    return
+  if [[ -n "${PYTHON_BIN:-}" && "$PYTHON_BIN" != "python3" ]]; then
+    if command -v "$PYTHON_BIN" &>/dev/null; then
+      return
+    fi
+    die "PYTHON_BIN=$PYTHON_BIN não encontrado. Ubuntu 26: sudo apt install python3.13 python3.13-venv"
   fi
-  for candidate in python3.12 python3.11 python3.10; do
+  for candidate in python3.13 python3.12 python3.11 python3.10; do
     if command -v "$candidate" &>/dev/null; then
       PYTHON_BIN="$candidate"
       return
@@ -146,14 +149,14 @@ detect_python() {
 }
 detect_python
 if ! command -v "$PYTHON_BIN" &>/dev/null; then
-  die "Python 3.10+ não encontrado. Instale: sudo apt install python3.12 python3.12-venv"
+  die "Python 3.10–3.13 não encontrado. Ubuntu 26: sudo apt install python3.13 python3.13-venv (deadsnakes PPA)"
 fi
 PY_VER="$("$PYTHON_BIN" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
 log "Python AI engine: $PYTHON_BIN ($PY_VER)"
 PY_MINOR="$("$PYTHON_BIN" -c 'import sys; print(sys.version_info.minor)')"
 PY_MAJOR="$("$PYTHON_BIN" -c 'import sys; print(sys.version_info.major)')"
 if [[ "$PY_MAJOR" -eq 3 && "$PY_MINOR" -ge 14 ]]; then
-  die "Python $PY_VER é incompatível com pydantic. Instale: sudo apt install python3.12 python3.12-venv && PYTHON_BIN=python3.12 $0"
+  die "Python $PY_VER é incompatível com pydantic. Instale python3.13: sudo apt install python3.13 python3.13-venv"
 fi
 if [[ ! -d "$AI/.venv" ]]; then
   log "Criando venv em apps/ai-engine/.venv"

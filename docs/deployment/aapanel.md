@@ -603,7 +603,7 @@ Agende no aaPanel → **Cron** (ex.: 03:00 diário).
 | `git pull` permission denied / dubious ownership | `sudo git -c safe.directory=/www/wwwroot/twin.app.br pull` ou `git checkout -- infra/aapanel/setup.sh` antes do pull |
 | `composer` usa PHP 8.1 / Symfony exige 8.4 | Sempre: `/www/server/php/82/bin/php /usr/local/bin/composer install` |
 | `ext-fileinfo` ausente | aaPanel → PHP 8.2 → Extensions → **fileinfo** → reinicie PHP |
-| `pydantic-core` / Python 3.14 no venv | `sudo apt install python3.12 python3.12-venv`; `rm -rf apps/ai-engine/.venv`; `PYTHON_BIN=python3.12 ./infra/aapanel/setup.sh` |
+| `pydantic-core` / Python 3.14 no venv | Ubuntu 26: `sudo apt install python3.13 python3.13-venv` (deadsnakes PPA); `rm -rf apps/ai-engine/.venv`; `PYTHON_BIN=python3.13 ./infra/aapanel/setup.sh` |
 
 ---
 
