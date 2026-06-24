@@ -130,7 +130,7 @@ if ! command -v "$NODE_BIN" &>/dev/null; then
   die "Node.js não encontrado. Instale via aaPanel → App Store → Node.js"
 fi
 log "npm ci + build (web)..."
-(cd "$WEB" && "$NPM_BIN" ci && "$NPM_BIN" run build)
+(cd "$WEB" && "$NPM_BIN" ci && "$NPM_BIN" run build && "$NPM_BIN" run postbuild)
 
 # --- Python venv + AI engine (3.10–3.13; evitar python3 = 3.14 no Ubuntu 26) ---
 detect_python() {
@@ -171,6 +171,7 @@ if [[ -d "$PARSERS" ]]; then
   pip install -q -e "$PARSERS"
 fi
 deactivate
+chown -R www:www "$AI/.venv" 2>/dev/null || true
 
 # --- Migrations (opcional) ---
 if [[ "$RUN_MIGRATE" == "1" ]]; then
@@ -186,18 +187,19 @@ if [[ "$RUN_MIGRATE" == "1" ]]; then
   fi
 fi
 
-# --- PM2 web (idempotente) ---
+# --- PM2 web (standalone, porta 3001 — 3000 costuma estar ocupada no VPS) ---
+WEB_PORT="${WEB_PORT:-3001}"
 if command -v "$PM2_BIN" &>/dev/null; then
   if "$PM2_BIN" describe twin-web &>/dev/null; then
-    log "PM2: reiniciando twin-web..."
-    (cd "$WEB" && "$PM2_BIN" restart twin-web)
+    log "PM2: reiniciando twin-web (porta $WEB_PORT)..."
+    PORT="$WEB_PORT" HOSTNAME=0.0.0.0 "$PM2_BIN" restart twin-web --update-env
   else
-    log "PM2: iniciando twin-web..."
-    (cd "$WEB" && "$PM2_BIN" start "$NPM_BIN" --name twin-web -- start)
+    log "PM2: iniciando twin-web em .next/standalone (porta $WEB_PORT)..."
+    (cd "$WEB/.next/standalone" && PORT="$WEB_PORT" HOSTNAME=0.0.0.0 "$PM2_BIN" start server.js --name twin-web)
     "$PM2_BIN" save || true
   fi
 else
-  log "PM2 não encontrado — inicie manualmente: cd apps/web && pm2 start npm --name twin-web -- start"
+  log "PM2 não encontrado — cd apps/web/.next/standalone && PORT=3001 pm2 start server.js --name twin-web"
 fi
 
 log "=== Bootstrap concluído ==="
