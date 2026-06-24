@@ -1,0 +1,21 @@
+# OPCIONAL — não exponha publicamente.
+# Use apenas se precisar de um vhost interno (ex.: monitoramento local).
+# O motor IA deve escutar somente em 127.0.0.1:8100 (supervisor/PM2).
+#
+# Não crie site público para a porta 8100. Firewall: não abra 8100.
+
+# Exemplo de server block LOCAL (listen 127.0.0.1) — raramente necessário:
+#
+# server {
+#     listen 127.0.0.1:8101;
+#     server_name localhost;
+#
+#     location / {
+#         proxy_pass http://127.0.0.1:8100;
+#         proxy_set_header Host $host;
+#         proxy_read_timeout 300s;
+#     }
+# }
+#
+# Verificação direta no servidor:
+#   curl -s http://127.0.0.1:8100/health

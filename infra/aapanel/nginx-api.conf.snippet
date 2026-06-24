@@ -1,0 +1,25 @@
+# Cole em: aaPanel → Site → api.twin.app.br → Configuração → Custom (server block)
+# Raiz do site no painel: /www/wwwroot/twin.app.br/apps/api/public
+
+client_max_body_size 500M;
+
+# Laravel — front controller
+location / {
+    try_files $uri $uri/ /index.php?$query_string;
+}
+
+location ~ \.php$ {
+    include enable-php-82.conf;   # ajuste a versão PHP instalada no painel
+    fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+    include fastcgi_params;
+    fastcgi_read_timeout 300;
+}
+
+# Bloquear arquivos sensíveis
+location ~ /\.(?!well-known).* {
+    deny all;
+}
+
+location ~ ^/(storage|bootstrap|vendor|database|\.env) {
+    deny all;
+}

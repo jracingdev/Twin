@@ -1,0 +1,59 @@
+; Copie para /etc/supervisor/conf.d/twin.conf (ou Supervisor do aaPanel)
+; Depois: supervisorctl reread && supervisorctl update && supervisorctl status
+;
+; Ajuste APP_DIR e usuário (www) conforme seu servidor.
+
+[group:twin]
+programs=twin-queue,twin-ai-engine,twin-celery
+
+; --- Fila Laravel (use horizon SE php artisan horizon:install já foi publicado) ---
+[program:twin-queue]
+command=/www/server/php/82/bin/php /www/wwwroot/twin.app.br/apps/api/artisan queue:work redis --sleep=3 --tries=3 --max-time=3600
+directory=/www/wwwroot/twin.app.br/apps/api
+autostart=true
+autorestart=true
+user=www
+numprocs=2
+process_name=%(program_name)s_%(process_num)02d
+redirect_stderr=true
+stdout_logfile=/www/wwwlogs/twin-queue.log
+stopwaitsecs=3600
+
+; Alternativa Horizon (descomente e comente twin-queue acima):
+; [program:twin-horizon]
+; command=/www/server/php/82/bin/php /www/wwwroot/twin.app.br/apps/api/artisan horizon
+; directory=/www/wwwroot/twin.app.br/apps/api
+; autostart=true
+; autorestart=true
+; user=www
+; redirect_stderr=true
+; stdout_logfile=/www/wwwlogs/twin-horizon.log
+; stopwaitsecs=3600
+
+; --- AI Engine (FastAPI / uvicorn) — somente localhost:8100 ---
+[program:twin-ai-engine]
+command=/www/wwwroot/twin.app.br/apps/ai-engine/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8100 --workers 2
+directory=/www/wwwroot/twin.app.br/apps/ai-engine
+environment=PATH="/www/wwwroot/twin.app.br/apps/ai-engine/.venv/bin"
+autostart=true
+autorestart=true
+user=www
+redirect_stderr=true
+stdout_logfile=/www/wwwlogs/twin-ai-engine.log
+
+; --- Celery worker (ingest, DNA, reindex) ---
+[program:twin-celery]
+command=/www/wwwroot/twin.app.br/apps/ai-engine/.venv/bin/celery -A app.celery_app worker -l info -c 2
+directory=/www/wwwroot/twin.app.br/apps/ai-engine
+environment=PATH="/www/wwwroot/twin.app.br/apps/ai-engine/.venv/bin"
+autostart=true
+autorestart=true
+user=www
+redirect_stderr=true
+stdout_logfile=/www/wwwlogs/twin-celery.log
+stopwaitsecs=600
+
+; --- Next.js via PM2 (não supervisor) ---
+; cd /www/wwwroot/twin.app.br/apps/web
+; pm2 start npm --name twin-web -- start
+; pm2 save && pm2 startup

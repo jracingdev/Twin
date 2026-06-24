@@ -6,6 +6,8 @@
 - 8 vCPU, 32 GB RAM recomendado
 - Docker + Docker Compose
 
+> **aaPanel (sem Docker):** se o servidor usa aaPanel com Nginx, PHP, MySQL e PM2, siga o guia dedicado [aapanel.md](./aapanel.md) e os scripts em `infra/aapanel/`.
+
 ## Passos
 
 ```bash
