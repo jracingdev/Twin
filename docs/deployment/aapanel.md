@@ -599,6 +599,8 @@ Agende no aaPanel → **Cron** (ex.: 03:00 diário).
 | Motor IA indisponível no import | Supervisor `twin-ai-engine`; nginx `/ai-engine/` no site web |
 | `POST /imports` 500 | `QUEUE_CONNECTION=redis` + Supervisor `twin-queue`; `chown -R www:www apps/api/storage`; extensão PHP **zip**; `tail storage/logs/laravel.log` |
 | Fila não processa | `QUEUE_CONNECTION=redis`, Redis ativo, Supervisor `twin-queue` |
+| `NOAUTH Authentication required` (Redis) | Veja [Redis com senha (aaPanel)](#redis-com-senha-aapanel) |
+| `supervisorctl: could not read config file` | Supervisor não instalado — veja §7 ou `apt install supervisor` |
 | `pdo_mysql` ausente | aaPanel → PHP → Install extensions → **reboot** |
 | CORS no login | Veja [CORS (preflight OPTIONS)](#cors-preflight-options) |
 | `open_basedir restriction` / `vendor/autoload.php` Operation not permitted | Veja [open_basedir (Laravel)](#open_basedir-laravel) |
@@ -608,6 +610,48 @@ Agende no aaPanel → **Cron** (ex.: 03:00 diário).
 | `composer` usa PHP 8.1 / Symfony exige 8.4 | Sempre: `/www/server/php/82/bin/php /usr/local/bin/composer install` |
 | `ext-fileinfo` ausente | aaPanel → PHP 8.2 → Extensions → **fileinfo** → reinicie PHP |
 | `pydantic-core` / Python 3.14 no venv | Ubuntu 26: `sudo apt install python3.13 python3.13-venv` (deadsnakes PPA); `rm -rf apps/ai-engine/.venv`; `PYTHON_BIN=python3.13 ./infra/aapanel/setup.sh` |
+
+---
+
+## Redis com senha (aaPanel)
+
+O Redis do aaPanel costuma exigir **senha**. Se `REDIS_PASSWORD` estiver vazio ou `null` no `.env`, a fila falha:
+
+```text
+RedisException: NOAUTH Authentication required.
+```
+
+### Obter a senha
+
+1. aaPanel → **App Store** → **Redis** → abra o serviço e copie a senha  
+   **ou**
+2. No servidor: `sudo grep -E '^requirepass' /www/server/redis/redis.conf`
+
+### Configurar Laravel (`apps/api/.env`)
+
+```env
+REDIS_HOST=127.0.0.1
+REDIS_PASSWORD=sua_senha_do_redis_aqui
+REDIS_PORT=6379
+QUEUE_CONNECTION=redis
+```
+
+Não use a string literal `null` — deixe vazio só se o Redis **não** tiver senha.
+
+```bash
+cd /www/wwwroot/twin.app.br/apps/api
+redis-cli -a 'SUA_SENHA' ping   # deve retornar PONG
+sudo -u www /www/server/php/82/bin/php artisan config:clear
+sudo -u www /www/server/php/82/bin/php artisan config:cache
+```
+
+### Configurar AI Engine (`apps/ai-engine/.env`)
+
+```env
+REDIS_URL=redis://:SUA_SENHA@127.0.0.1:6379/0
+```
+
+Reinicie Celery após alterar (Supervisor `twin-celery`).
 
 ---
 
