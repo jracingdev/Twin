@@ -138,6 +138,11 @@ sudo chown -R www:www /www/wwwroot/twin.app.br
 unset GITHUB_TOKEN
 ```
 
+> **Erro `chmod: Operation not permitted` ou `Permission denied` no `setup.sh`?**  
+> O clone com `sudo` deixa arquivos como `root`. Antes do bootstrap, rode sempre:
+> `sudo chown -R www:www /www/wwwroot/twin.app.br` e `sudo chmod +x infra/aapanel/setup.sh`.  
+> Se preferir rodar o setup como `ubuntu`, use `sudo chown -R ubuntu:www ...` e depois `sudo` só onde o script faz `chown www:www` (storage).
+
 Alternativa com `GIT_ASKPASS` (o token não aparece na URL do processo `git`):
 
 ```bash

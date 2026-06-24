@@ -66,14 +66,6 @@ if [[ ! -f "$API/.env" ]]; then
   fi
 fi
 
-# APP_KEY
-if ! grep -q '^APP_KEY=base64:' "$API/.env" 2>/dev/null; then
-  if grep -qE '^APP_KEY=\s*$' "$API/.env" || ! grep -q '^APP_KEY=' "$API/.env"; then
-    log "Gerando APP_KEY..."
-    (cd "$API" && "$PHP_BIN" artisan key:generate --force)
-  fi
-fi
-
 # --- .env do AI engine ---
 if [[ ! -f "$AI/.env" ]]; then
   log "Criando apps/ai-engine/.env"
@@ -116,6 +108,14 @@ else
 fi
 log "composer install (API)..."
 (cd "$API" && composer install --no-dev --optimize-autoloader --no-interaction)
+
+# APP_KEY (requer vendor/ — após composer install)
+if ! grep -q '^APP_KEY=base64:' "$API/.env" 2>/dev/null; then
+  if grep -qE '^APP_KEY=\s*$' "$API/.env" || ! grep -q '^APP_KEY=' "$API/.env"; then
+    log "Gerando APP_KEY..."
+    (cd "$API" && "$PHP_BIN" artisan key:generate --force)
+  fi
+fi
 
 log "php artisan config:cache route:cache view:cache..."
 (cd "$API" && "$PHP_BIN" artisan config:cache && "$PHP_BIN" artisan route:cache && "$PHP_BIN" artisan view:cache) || true
