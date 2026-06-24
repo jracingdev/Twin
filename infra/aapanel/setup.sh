@@ -100,7 +100,8 @@ fi
 # --- Permissões Laravel ---
 log "Ajustando permissões storage/ bootstrap/cache..."
 mkdir -p "$API/storage/logs" "$API/storage/framework/cache" "$API/storage/framework/sessions" "$API/storage/framework/views"
-chown -R www:www "$API/storage" "$API/bootstrap/cache" 2>/dev/null || true
+SETUP_USER="$(whoami)"
+chown -R "$SETUP_USER:$SETUP_USER" "$API/storage" "$API/bootstrap/cache" 2>/dev/null || true
 chmod -R ug+rwx "$API/storage" "$API/bootstrap/cache" 2>/dev/null || true
 
 # --- Composer ---
