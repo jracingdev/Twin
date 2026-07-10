@@ -1,14 +1,32 @@
 const DEFAULT_API_URL = "https://api.twin.app.br/api/v1";
 
+/** Credenciais ficam só em chrome.storage.local (nunca sync — evita sync na conta Google). */
+const STORAGE_KEYS = ["apiUrl", "token", "tenantId", "twinId", "intensity", "sellerMode"];
+
+async function extensionStorageGet(keys = STORAGE_KEYS) {
+  const local = await chrome.storage.local.get(keys);
+  if (local.token) return local;
+
+  // Migração one-shot de versões antigas que usavam sync
+  try {
+    const sync = await chrome.storage.sync.get(keys);
+    if (sync.token) {
+      await chrome.storage.local.set(sync);
+      await chrome.storage.sync.remove(keys);
+      return { ...local, ...sync };
+    }
+  } catch {
+    /* sync indisponível */
+  }
+  return local;
+}
+
+async function extensionStorageSet(values) {
+  await chrome.storage.local.set(values);
+}
+
 async function getSettings() {
-  const data = await chrome.storage.sync.get([
-    "apiUrl",
-    "token",
-    "tenantId",
-    "twinId",
-    "intensity",
-    "sellerMode",
-  ]);
+  const data = await extensionStorageGet();
   return {
     apiUrl: data.apiUrl || DEFAULT_API_URL,
     token: data.token || "",
@@ -186,7 +204,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       case "LIST_TWINS":
         return listTwins();
       case "SAVE_AUTH": {
-        await chrome.storage.sync.set({
+        await extensionStorageSet({
           token: message.token,
           tenantId: message.tenantId,
         });
@@ -207,7 +225,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 chrome.runtime.onMessage.addListener((message) => {
   if (message.type !== "TWIN_AUTH_AVAILABLE") return;
   if (!message.token) return;
-  chrome.storage.sync.set({
+  void extensionStorageSet({
     token: message.token,
     ...(message.tenantId ? { tenantId: message.tenantId } : {}),
   });

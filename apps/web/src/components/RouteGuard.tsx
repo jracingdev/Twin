@@ -3,20 +3,15 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { getToken, isPublicPath } from "@/lib/auth";
 
-const PUBLIC_PATHS = [
-  "/",
-  "/login",
-  "/signup",
-  "/forgot-password",
-  "/reset-password",
-  "/onboarding",
-];
-
-function isPublicPath(pathname: string): boolean {
-  return PUBLIC_PATHS.includes(pathname);
-}
-
+/**
+ * Guarda client-side alinhada ao middleware:
+ * - Rotas públicas: mesma lista em `auth-constants` / middleware.
+ * - Rotas privadas: exige token em sessionStorage + user via /me.
+ * O middleware já redireciona sem cookie `twin_auth`; aqui cobrimos
+ * cookie órfão (sem token) e sessão inválida após clearToken.
+ */
 export function RouteGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -25,17 +20,17 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (loading || isPublic) return;
-    if (!user) {
+    if (!getToken() || !user) {
       const next = encodeURIComponent(pathname);
       router.replace(`/login?next=${next}`);
     }
-  }, [loading, user, isPublic, router]);
+  }, [loading, user, isPublic, pathname, router]);
 
   if (!isPublic && loading) {
     return <p className="text-twin-muted">Carregando…</p>;
   }
 
-  if (!isPublic && !user) {
+  if (!isPublic && (!getToken() || !user)) {
     return null;
   }
 

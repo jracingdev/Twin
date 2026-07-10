@@ -34,8 +34,8 @@ Ideal para quem já atende pelo **WhatsApp Web** no navegador e quer sugestões 
    - Token e organização:
      - Botão **Importar do TWIN Web** (com [twin.app.br](https://twin.app.br) aberto e logado), ou
      - Cole manualmente:
-       - Token: `localStorage.getItem('twin_token')`
-       - Organização: `localStorage.getItem('twin_organization_id')`
+       - Token: `sessionStorage.getItem('twin_token')`
+       - Organização: `sessionStorage.getItem('twin_organization_id')`
    - Selecione o **twin** → **Atualizar lista** → **Salvar**
 
 3. **Usar no WhatsApp Web**
