@@ -153,5 +153,16 @@ class ChannelCredentialController extends Controller
         if ($channel === 'whatsapp' && app()->environment('production') && empty($creds['app_secret'])) {
             abort(422, 'app_secret is required for WhatsApp in production');
         }
+
+        if ($channel === 'telegram') {
+            $secret = isset($creds['secret_token']) ? trim((string) $creds['secret_token']) : '';
+            if ($secret === '') {
+                if (app()->environment('production')) {
+                    abort(422, 'secret_token is required for Telegram in production (setWebhook secret_token)');
+                }
+            } elseif (strlen($secret) < 8) {
+                abort(422, 'secret_token must be at least 8 characters');
+            }
+        }
     }
 }

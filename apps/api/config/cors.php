@@ -1,15 +1,19 @@
 <?php
 
-$localOrigins = [
-    'http://127.0.0.1:3000',
-    'http://localhost:3000',
-];
-
 $envOrigins = array_filter(array_map('trim', explode(',', (string) env('CORS_ALLOWED_ORIGINS', ''))));
 
 $frontendUrl = env('FRONTEND_URL');
 if ($frontendUrl) {
     $envOrigins[] = rtrim($frontendUrl, '/');
+}
+
+// Never merge localhost origins into production CORS allowlists.
+$localOrigins = [];
+if (env('APP_ENV') !== 'production') {
+    $localOrigins = [
+        'http://127.0.0.1:3000',
+        'http://localhost:3000',
+    ];
 }
 
 $allowedOrigins = array_values(array_unique(array_filter(array_merge($envOrigins, $localOrigins))));

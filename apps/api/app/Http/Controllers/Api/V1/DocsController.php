@@ -78,6 +78,8 @@ HTML;
                 'header' => 'Authorization: Bearer {token}',
                 'tenant' => 'X-Tenant: {organization_uuid}',
                 'api_key' => 'X-Api-Key: {key}',
+                'tenant_routes' => 'Sanctum Bearer OU X-Api-Key (middleware auth.api). Sessão /me e 2FA: apenas Sanctum. Rotas com role exigem usuário Sanctum.',
+                'api_key_scopes' => 'Se a chave tiver scopes, rotas que declaram escopo exigem interseção; scopes vazios = acesso total da org.',
             ],
             'tags' => [
                 'Auth',

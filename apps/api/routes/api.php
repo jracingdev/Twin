@@ -95,7 +95,8 @@ Route::prefix('v1')->group(function () {
 
     });
 
-    Route::middleware(['auth:sanctum', 'tenant', 'tenant.provisioned'])->group(function () {
+    // Sanctum Bearer OU X-Api-Key (middleware auth.api). Rotas com role:* exigem usuário Sanctum.
+    Route::middleware(['auth.api', 'tenant', 'tenant.provisioned'])->group(function () {
 
         Route::get('billing/subscription', [BillingController::class, 'subscription']);
 
@@ -178,7 +179,7 @@ Route::prefix('v1')->group(function () {
 
 
 
-        Route::post('suggest', [SuggestController::class, 'store']);
+        Route::post('suggest', [SuggestController::class, 'store'])->middleware('throttle:60,1');
 
         Route::get('suggestions', [SuggestionController::class, 'index']);
 

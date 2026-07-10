@@ -20,6 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'tenant.provisioned' => \App\Http\Middleware\EnsureTenantDatabaseProvisioned::class,
             'role' => \App\Http\Middleware\EnsureUserRole::class,
             'api.key' => \App\Http\Middleware\AuthenticateApiKey::class,
+            'auth.api' => \App\Http\Middleware\AuthenticateSanctumOrApiKey::class,
             'internal.secret' => \App\Http\Middleware\VerifyInternalSecret::class,
         ]);
 

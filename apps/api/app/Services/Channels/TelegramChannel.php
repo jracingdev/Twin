@@ -4,6 +4,7 @@ namespace App\Services\Channels;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
 class TelegramChannel implements ChannelInterface
@@ -14,15 +15,21 @@ class TelegramChannel implements ChannelInterface
     }
 
     /**
-     * When credentials include secret_token (set via setWebhook), require
-     * X-Telegram-Bot-Api-Secret-Token. Without secret_token, identity still
-     * relies on the unguessable webhook_token in the URL — configure
-     * secret_token in production for defense in depth.
+     * Fail-closed when secret_token is configured: require matching
+     * X-Telegram-Bot-Api-Secret-Token. Without secret_token: reject in
+     * production; allow in local/dev with a warning (URL token still required).
      */
     public function verifySignature(Request $request, array $credentials): bool
     {
         $expected = $credentials['secret_token'] ?? '';
+
         if ($expected === '') {
+            if (app()->environment('production')) {
+                return false;
+            }
+
+            Log::warning('Telegram webhook accepted without secret_token (non-production). Configure secret_token for defense in depth.');
+
             return true;
         }
 

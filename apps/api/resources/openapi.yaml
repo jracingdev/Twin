@@ -10,7 +10,10 @@ info:
     2. Envie `Authorization: Bearer {token}` em todas as rotas autenticadas.
     3. Rotas de tenant exigem também o header `X-Tenant: {organization_uuid}` (UUID da organização retornado no login ou em `GET /me`).
 
-    Alternativa: chave de API via header `X-Api-Key` (quando configurada para a organização).
+    Alternativa: chave de API via header `X-Api-Key` nas rotas de tenant
+    (middleware `auth.api` — Sanctum Bearer **ou** API key). Sessão (`/me`, 2FA)
+    permanece apenas Sanctum. Se a chave tiver `scopes`, rotas que declaram
+    escopo exigem interseção; scopes vazios = acesso total da organização.
 
     ## Webhooks de canal (ingress)
     Canais como WhatsApp e Telegram recebem mensagens em URLs dedicadas geradas ao criar credenciais de canal (`webhook_url` na resposta). Essas rotas **não** fazem parte desta API de gestão — são endpoints de ingress configurados por plataforma.
@@ -66,6 +69,7 @@ tags:
 
 security:
   - bearerAuth: []
+  - apiKey: []
 
 paths:
   /login:
@@ -1498,7 +1502,7 @@ components:
       type: apiKey
       in: header
       name: X-Api-Key
-      description: Chave de API da organização (alternativa ao Bearer)
+      description: Chave de API da organização (alternativa ao Bearer nas rotas de tenant)
 
   parameters:
     XTenant:
