@@ -57,11 +57,16 @@ class RAGEngine:
         seller_mode: bool = False,
         session_id: str | None = None,
         confidence_threshold: float = DEFAULT_CONFIDENCE_THRESHOLD,
+        *,
+        conversation_history: list[dict] | None = None,
+        channel: str | None = None,
+        agent_mode: bool = False,
     ) -> dict[str, Any]:
         level = INTENSITY_MAP.get(intensity, "moderate")
         ctx = self.memory.retrieve_context(tenant_id, twin_id, text, contact_id)
 
         wm_session = session_id or contact_id
+        working = self.memory.working_set(wm_session) if wm_session else []
         if wm_session:
             self.memory.push_working(
                 wm_session,
@@ -73,7 +78,22 @@ class RAGEngine:
         if seller_mode:
             seller_ctx = search(tenant_id, twin_id, "seller", text, top_k=3)
 
-        prompt = self._build_prompt(text, dna or {}, level, style_examples, ctx, seller_ctx, seller_mode)
+        opportunity = self.seller.detect_opportunity(text) if seller_mode else None
+
+        prompt = self._build_prompt(
+            text,
+            dna or {},
+            level,
+            style_examples,
+            ctx,
+            seller_ctx,
+            seller_mode,
+            conversation_history=conversation_history,
+            working_memory=working,
+            channel=channel,
+            agent_mode=agent_mode,
+            opportunity=opportunity,
+        )
         suggestion = self._generate(prompt)
         suggestion = postprocess(suggestion, dna or {}, intensity)
 
@@ -83,7 +103,11 @@ class RAGEngine:
         if wm_session:
             self.memory.push_working(
                 wm_session,
-                {"role": "suggestion", "text": suggestion, "score": similarity["geral"]},
+                {
+                    "role": "assistant" if agent_mode else "suggestion",
+                    "text": suggestion,
+                    "score": similarity["geral"],
+                },
             )
 
         confidence = similarity["geral"]
@@ -99,9 +123,13 @@ class RAGEngine:
             "metadata": {
                 "intensity": level,
                 "seller_mode": seller_mode,
+                "agent_mode": agent_mode,
+                "channel": channel,
+                "opportunity": opportunity,
                 "similarity_breakdown": similarity,
                 "confidence": confidence,
                 "auto_send_recommended": auto_send,
+                "history_turns": len(conversation_history or []),
             },
         }
 
@@ -136,14 +164,16 @@ class RAGEngine:
         if seller_mode:
             seller_ctx = search(tenant_id, twin_id, "seller", text, top_k=3)
 
-        prompt = self._build_prompt(text, dna or {}, level, style_examples, ctx, seller_ctx, seller_mode)
-        if conversation_history:
-            history_block = "\n".join(
-                f"{t.get('role', 'user')}: {t.get('text', '')[:300]}"
-                for t in conversation_history[-10:]
-            )
-            prompt = f"Histórico da conversa:\n{history_block}\n\n{prompt}"
-
+        prompt = self._build_prompt(
+            text,
+            dna or {},
+            level,
+            style_examples,
+            ctx,
+            seller_ctx,
+            seller_mode,
+            conversation_history=conversation_history,
+        )
         suggestion = self._generate(prompt)
         suggestion = postprocess(suggestion, dna or {}, intensity)
 
@@ -318,6 +348,12 @@ class RAGEngine:
         ctx: dict,
         seller_ctx: list,
         seller_mode: bool,
+        *,
+        conversation_history: list[dict] | None = None,
+        working_memory: list[dict] | None = None,
+        channel: str | None = None,
+        agent_mode: bool = False,
+        opportunity: dict | None = None,
     ) -> str:
         style = dna.get("writing_style", {})
         comm = dna.get("communication", {})
@@ -330,7 +366,7 @@ class RAGEngine:
         )
         seller_text = ""
         if seller_mode and seller_ctx:
-            seller_text = "\nPlaybooks:\n" + "\n".join(
+            seller_text = "\nPlaybooks de venda:\n" + "\n".join(
                 f"- {s.get('chunk_text', '')[:200]}" for s in seller_ctx
             )
 
@@ -347,19 +383,59 @@ class RAGEngine:
                 f"empatia {psych.get('empatia', 50)}, formalidade {psych.get('formalidade', 50)}."
             )
 
-        return f"""Você é o gêmeo digital TWIN do usuário. Responda como ELE responderia.
+        history_block = ""
+        turns = conversation_history or []
+        if turns:
+            history_block = "\nHistórico recente da conversa:\n" + "\n".join(
+                f"{t.get('role', 'user')}: {str(t.get('text', ''))[:300]}"
+                for t in turns[-10:]
+            )
+
+        wm_block = ""
+        if working_memory:
+            recent_wm = working_memory[-8:]
+            wm_block = "\nContexto da sessão:\n" + "\n".join(
+                f"{m.get('role', 'msg')}: {str(m.get('text', ''))[:200]}"
+                for m in recent_wm
+                if m.get("text")
+            )
+
+        channel_hint = ""
+        if channel == "whatsapp" or agent_mode:
+            channel_hint = (
+                "\nCanal: WhatsApp. Respostas curtas (1–3 frases), naturais no chat. "
+                "Não use markdown, títulos nem listas longas. "
+                "Continue o fio da conversa; não reinicie com saudação se já estiver no meio do diálogo."
+            )
+
+        role_line = (
+            "Você é o vendedor clonado (agente TWIN) atendendo o cliente em tempo real. "
+            "Responda exatamente como ELE responderia — feche dúvidas, avance a venda quando fizer sentido."
+            if agent_mode or seller_mode
+            else "Você é o gêmeo digital TWIN do usuário. Responda como ELE responderia."
+        )
+
+        opportunity_hint = ""
+        if opportunity:
+            opportunity_hint = (
+                f"\nSinal detectado: {opportunity.get('type')} "
+                f"(confiança {opportunity.get('confidence', 0)}). "
+                "Ajuste a resposta a esse momento da venda sem forçar."
+            )
+
+        return f"""{role_line}
 Intensidade de imitação: {level} (peso estilo: {presets.get('style_weight', 0.6)}).
 Formalidade: {formality}. Emojis: taxa {emoji_rate}.
 Saudações típicas: {', '.join(greetings[:3])}.
-Gírias: {', '.join(slang[:5])}.{psych_hint}
+Gírias: {', '.join(slang[:5])}.{psych_hint}{channel_hint}{opportunity_hint}
 
 Exemplos de estilo:
 {ex_text or '- (sem exemplos ainda)'}
 
 Memória relevante:
-{mem_text or '- (nenhuma)'}{seller_text}
+{mem_text or '- (nenhuma)'}{seller_text}{history_block}{wm_block}
 
-REGRAS: Não invente fatos. Se não souber, diga que precisa confirmar. Tom humano, não robótico.
+REGRAS: Não invente fatos, preços ou prazos. Se não souber, diga que precisa confirmar. Tom humano, não robótico. Uma mensagem de chat, não um e-mail.
 
 Mensagem recebida: {user_input}
 

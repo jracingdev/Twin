@@ -80,13 +80,14 @@ Configure em [Configurações → Canais](/settings/channels) ao conectar ou edi
 |------|---------------------|-------------------------|
 | **Assistente** | Só gera sugestões — nunca envia automaticamente | Cria `ResponseSuggestion` com status `pending` |
 | **Copiloto (aprovação)** | Sugestões vão para a [Inbox](/inbox) antes de enviar | **Idêntico ao assistente** — também cria sugestão `pending` |
-| **Autônomo** | Envia direto quando a confiança atinge o limiar | Se score ≥ limiar → envia via `SendChannelMessageJob`; senão → inbox (fallback) |
+| **Agente (autônomo)** | O twin responde sozinho no canal (ex.: WhatsApp) quando a confiança atinge o limiar | Se score ≥ limiar → envia via `SendChannelMessageJob` + registra sugestão `sent`; senão → inbox (`auto_fallback`) |
 
-### Limiar de confiança (modo autônomo)
+### Limiar de confiança (modo agente)
 
 - Ajustável entre **50% e 95%** (padrão **75%**).
 - O score vem do motor de IA (`confidence` ou `score` na resposta do `suggest`).
 - Abaixo do limiar, a resposta vira sugestão na inbox com metadado `auto_fallback: true` em vez de ser enviada ao contato.
+- No modo agente, o pipeline envia o **histórico recente da conversa** e a memória de sessão ao AI Engine, para o vendedor clonado continuar o diálogo (não só a última mensagem).
 
 > **Nota:** Hoje `assistant` e `copilot` são tratados da mesma forma no backend (`ProcessChannelMessageJob`). A diferença é apenas conceitual na interface; ambos exigem aprovação manual na [Inbox](/inbox) para enviar ao canal.
 

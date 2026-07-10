@@ -7,6 +7,11 @@ router = APIRouter()
 engine = RAGEngine()
 
 
+class ConversationTurn(BaseModel):
+    role: str = "user"
+    text: str = ""
+
+
 class SuggestRequest(BaseModel):
     tenant_id: str
     twin_id: str
@@ -17,6 +22,9 @@ class SuggestRequest(BaseModel):
     seller_mode: bool = False
     dna: dict | None = None
     confidence_threshold: float = Field(default=DEFAULT_CONFIDENCE_THRESHOLD, ge=0.0, le=1.0)
+    conversation_history: list[ConversationTurn] | None = None
+    channel: str | None = None
+    agent_mode: bool = False
 
 
 class SimilarityRequest(BaseModel):
@@ -34,6 +42,11 @@ class ExplainRequest(BaseModel):
 
 @router.post("/respond/suggest")
 def suggest(req: SuggestRequest):
+    history = (
+        [{"role": t.role, "text": t.text} for t in req.conversation_history]
+        if req.conversation_history
+        else None
+    )
     return engine.suggest(
         req.tenant_id,
         req.twin_id,
@@ -44,6 +57,9 @@ def suggest(req: SuggestRequest):
         req.seller_mode,
         req.session_id,
         req.confidence_threshold,
+        conversation_history=history,
+        channel=req.channel,
+        agent_mode=req.agent_mode,
     )
 
 

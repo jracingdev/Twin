@@ -119,8 +119,12 @@ export default function InboxPage() {
 
       <ul className="space-y-4">
         {items.map((item) => {
-          const fromChannel = item.metadata?.source === "channel_webhook";
+          const fromChannel =
+            item.metadata?.source === "channel_webhook" ||
+            item.metadata?.source === "channel_agent";
           const channel = item.metadata?.channel as string | undefined;
+          const autoFallback = Boolean(item.metadata?.auto_fallback);
+          const agentAuto = Boolean(item.metadata?.agent_auto);
           return (
             <li key={item.id} className="glass space-y-3 p-5">
               <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-twin-muted">
@@ -129,6 +133,16 @@ export default function InboxPage() {
                   {fromChannel && channel && (
                     <span className="ml-2 rounded bg-twin-magenta/20 px-2 py-0.5 text-twin-magenta">
                       {channel}
+                    </span>
+                  )}
+                  {autoFallback && (
+                    <span className="ml-2 rounded bg-amber-500/20 px-2 py-0.5 text-amber-300">
+                      agente · revisão
+                    </span>
+                  )}
+                  {agentAuto && (
+                    <span className="ml-2 rounded bg-twin-cyan/20 px-2 py-0.5 text-twin-cyan">
+                      enviado pelo agente
                     </span>
                   )}
                 </span>

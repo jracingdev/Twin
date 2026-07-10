@@ -53,18 +53,23 @@ class ProcessChannelMessageJob implements ShouldQueue
             ->first();
 
         $replyMode = ChannelCredential::normalizeReplyMode($credential?->reply_mode);
+        $agentMode = $replyMode === 'auto';
 
         $suggestPayload = [
             'tenant_id' => $this->organizationId,
             'twin_id' => $twin->id,
             'text' => $message->body,
             'contact_id' => $message->contact_id,
+            'session_id' => $this->conversationId,
             'intensity' => $twin->intensity,
             'seller_mode' => $twin->seller_mode,
             'dna' => $twin->activeDna?->payload,
+            'channel' => $this->channel,
+            'agent_mode' => $agentMode,
+            'conversation_history' => $this->conversationHistory(),
         ];
 
-        if ($replyMode === 'auto' && $credential !== null) {
+        if ($agentMode && $credential !== null) {
             $suggestPayload['confidence_threshold'] = $credential->resolveConfidenceThreshold();
         }
 
@@ -138,6 +143,12 @@ class ProcessChannelMessageJob implements ShouldQueue
 
     private function dispatchAutoReply(Twin $twin, Message $message, string $reply, array $result): void
     {
+        $score = $this->resolveResultScore($result);
+        $scoreBreakdown = $result['score_breakdown']
+            ?? $result['similarity']
+            ?? ($result['metadata']['score_breakdown'] ?? null)
+            ?? ($result['metadata']['similarity_breakdown'] ?? null);
+
         $replyMessage = Message::create([
             'twin_id' => $this->twinId,
             'conversation_id' => $this->conversationId,
@@ -146,7 +157,32 @@ class ProcessChannelMessageJob implements ShouldQueue
             'role' => 'assistant',
             'sent_at' => now(),
             'content_hash' => hash('sha256', $reply),
-            'metadata' => ['channel_reply' => true, 'score' => $this->resolveResultScore($result)],
+            'metadata' => [
+                'channel_reply' => true,
+                'agent_auto' => true,
+                'score' => $score,
+            ],
+        ]);
+
+        ResponseSuggestion::create([
+            'twin_id' => $this->twinId,
+            'contact_id' => $message->contact_id,
+            'input_text' => $message->body,
+            'suggested_text' => $reply,
+            'intensity' => $twin->intensity,
+            'score' => $score,
+            'status' => 'sent',
+            'metadata' => array_merge($result['metadata'] ?? [], array_filter([
+                'channel' => $this->channel,
+                'conversation_id' => $this->conversationId,
+                'inbound_message_id' => $this->messageId,
+                'outbound_message_id' => $replyMessage->id,
+                'platform_meta' => $this->platformMeta,
+                'source' => 'channel_agent',
+                'agent_auto' => true,
+                'score_breakdown' => $scoreBreakdown,
+                'seller_mode' => $twin->seller_mode,
+            ], fn ($v) => $v !== null)),
         ]);
 
         SendChannelMessageJob::dispatch(
@@ -156,6 +192,26 @@ class ProcessChannelMessageJob implements ShouldQueue
             $this->twinId,
             $this->platformMeta
         )->onQueue('channel');
+    }
+
+    /**
+     * @return list<array{role: string, text: string}>
+     */
+    private function conversationHistory(): array
+    {
+        return Message::query()
+            ->where('conversation_id', $this->conversationId)
+            ->where('id', '!=', $this->messageId)
+            ->orderByDesc('sent_at')
+            ->limit(12)
+            ->get(['role', 'body', 'sent_at'])
+            ->sortBy('sent_at')
+            ->values()
+            ->map(fn (Message $m) => [
+                'role' => $m->role === 'assistant' ? 'assistant' : 'user',
+                'text' => (string) $m->body,
+            ])
+            ->all();
     }
 
     private function resolveResultScore(array $result): ?float

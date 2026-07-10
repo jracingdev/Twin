@@ -49,8 +49,9 @@ const REPLY_MODES: {
   },
   {
     value: "auto",
-    label: "Autônomo",
-    description: "Envia direto quando a confiança atinge o limiar.",
+    label: "Agente (autônomo)",
+    description:
+      "O vendedor clonado responde sozinho no WhatsApp quando a confiança atinge o limiar.",
   },
 ];
 
@@ -157,8 +158,30 @@ export default function SettingsChannelsPage() {
         </Link>
         <h1 className="mt-2 text-3xl font-bold neon-text">Canais de atendimento</h1>
         <p className="mt-2 max-w-2xl text-sm text-twin-muted">
-          Conecte APIs para <strong className="text-white">atendimento em tempo real</strong>.
-          Escolha o modo de supervisão e, no autônomo, o limiar de confiança.
+          Conecte o WhatsApp Business API e coloque o twin em modo{" "}
+          <strong className="text-white">Agente</strong> para ele atender clientes
+          em tempo real com o estilo do vendedor clonado. Use Copiloto se quiser
+          aprovar cada resposta na Inbox.
+        </p>
+      </div>
+
+      <div className="glass space-y-2 border border-twin-cyan/20 p-5">
+        <p className="font-medium text-twin-cyan">Como ativar o agente no WhatsApp</p>
+        <ol className="list-decimal space-y-1 pl-5 text-sm text-twin-muted">
+          <li>Treine o twin (importe conversas reais do vendedor).</li>
+          <li>Conecte WhatsApp Business API abaixo com as credenciais da Meta.</li>
+          <li>
+            Escolha o modo <strong className="text-white">Agente (autônomo)</strong> e
+            ajuste o limiar (padrão 75%).
+          </li>
+          <li>
+            Configure o webhook na Meta e rode o worker com a fila{" "}
+            <code className="text-twin-cyan">channel</code>.
+          </li>
+        </ol>
+        <p className="text-xs text-twin-muted">
+          Abaixo do limiar, a resposta cai na Inbox em vez de ir ao cliente. A
+          extensão do WhatsApp Web continua só como copiloto (sem envio automático).
         </p>
       </div>
 
@@ -273,8 +296,12 @@ export default function SettingsChannelsPage() {
           <select
             value={channel}
             onChange={(e) => {
-              setChannel(e.target.value);
+              const next = e.target.value;
+              setChannel(next);
               setForm({});
+              if (next === "whatsapp" && replyMode === "copilot") {
+                setReplyMode("auto");
+              }
             }}
             className="rounded border border-twin-cyan/20 bg-black/40 px-3 py-2 text-sm"
           >
@@ -298,7 +325,7 @@ export default function SettingsChannelsPage() {
         {replyMode === "auto" && (
           <label className="block max-w-md text-sm">
             <span className="text-twin-muted">
-              Limiar de confiança (modo autônomo): {Math.round(confidenceThreshold * 100)}%
+              Limiar de confiança (agente): {Math.round(confidenceThreshold * 100)}%
             </span>
             <input
               type="range"
@@ -310,7 +337,7 @@ export default function SettingsChannelsPage() {
               className="mt-1 w-full accent-twin-cyan"
             />
             <p className="mt-1 text-xs text-twin-muted">
-              Respostas abaixo deste score vão para a inbox em vez de enviar automaticamente.
+              O agente envia sozinho acima deste score; abaixo, a sugestão vai para a Inbox.
             </p>
           </label>
         )}

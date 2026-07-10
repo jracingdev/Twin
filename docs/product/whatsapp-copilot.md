@@ -108,9 +108,9 @@ Gere uma string aleatória segura (ex.: `openssl rand -hex 24`). Será usada no 
 |------|---------------|
 | **Assistente** | Gera sugestão `pending` — nunca envia sozinho |
 | **Copiloto (aprovação)** | Igual ao assistente — aprovação na [Inbox](https://twin.app.br/inbox) |
-| **Autônomo** | Envia direto se confiança ≥ limiar (50–95%, padrão 75%); senão vai para inbox |
+| **Agente (autônomo)** | O vendedor clonado responde sozinho se confiança ≥ limiar (50–95%, padrão 75%); senão vai para inbox |
 
-> No backend, `assistant` e `copilot` são equivalentes: ambos criam sugestão pendente. O envio ao WhatsApp só ocorre após **Aprovar e enviar** na Inbox (ou automaticamente no modo autônomo).
+> No backend, `assistant` e `copilot` são equivalentes: ambos criam sugestão pendente. O envio ao WhatsApp só ocorre após **Aprovar e enviar** na Inbox (ou automaticamente no modo agente). O agente usa histórico da conversa + DNA/RAG para continuar o atendimento.
 
 #### 6. Aprovar respostas na Inbox
 
