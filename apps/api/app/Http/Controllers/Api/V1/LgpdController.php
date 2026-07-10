@@ -82,10 +82,14 @@ class LgpdController extends Controller
             return response()->json(['message' => 'Arquivo não encontrado.'], 404);
         }
 
+        $isZip = str_ends_with(strtolower($row->file_path), '.zip');
+        $filename = 'twin-export-'.$row->id.($isZip ? '.zip' : '.json');
+        $contentType = $isZip ? 'application/zip' : 'application/json';
+
         return response()->streamDownload(
             fn () => print ($disk->get($row->file_path)),
-            'twin-export-'.$row->id.'.json',
-            ['Content-Type' => 'application/json']
+            $filename,
+            ['Content-Type' => $contentType]
         );
     }
 

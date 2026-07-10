@@ -28,7 +28,7 @@ Canal tempo real (WhatsApp API):
 | 3 | Pipeline DNA/import duplicado | Aberto |
 | 4 | Feedback aceito não atualiza Pinecone | Aberto |
 | 5 | `reindex` / `incremental` são stubs | Aberto |
-| 6 | `PurgeOrganizationJob` incompleto | Aberto (purge twin melhorado) |
+| 6 | `PurgeOrganizationJob` incompleto | **Corrigido** — AI, storage, credentials, pivot, DeleteDatabase |
 | 7 | OpenAI acoplado em `rag_engine.py` | Aberto |
 | 8 | WhatsApp `verifySignature` passa sem app_secret | **Corrigido** — fail-closed |
 | 9 | Cap 2000 msgs/import sem aviso | **Corrigido** — `warning` + `truncated` no response |
@@ -39,6 +39,7 @@ Canal tempo real (WhatsApp API):
 | Área | Correção |
 |------|----------|
 | LGPD | `ProcessDataDeletionRequestJob` só marca `acknowledged` (revisão admin ≤30 dias); **não** dispara `PurgeOrganizationJob` |
+| LGPD | Export ZIP completo (twins/contacts/conversations/messages/suggestions/consents) com chunk; `lgpd:apply-retention` diário se `auto_purge`; purge org completo |
 | Stripe | Webhook fail-closed: production sem secret → 503; secret ou production → exige assinatura |
 | Filas | Compose usa `php artisan queue:work redis --queue=default,channel` (serviço `queue-worker`) |
 | RBAC | `role:owner` / `role:owner,admin` em billing checkout/portal, purge twin, API keys, channel credentials CUD, LGPD deletion, webhook settings |
@@ -53,7 +54,7 @@ Canal tempo real (WhatsApp API):
 
 **Implementado:** Sanctum, 2FA, encrypt credentials, internal secret, consent obrigatório, tenant isolation, purge twin ampliado, RBAC em rotas sensíveis, webhooks fail-closed, SSRF blocklist, Stripe fail-closed, rate limits auth/webhooks, CORS AI restrito.
 
-**Ainda aberto (fora desta rodada):** auth web httpOnly cookies, middleware `api.key` nas rotas de produto, purge org completo + DPIA, k8s/terraform.
+**Ainda aberto (fora desta rodada):** auth web httpOnly cookies, middleware `api.key` nas rotas de produto, DPIA operacional, k8s/terraform.
 
 ## 4. Performance
 
@@ -85,7 +86,7 @@ Canal tempo real (WhatsApp API):
 | 8 Supervisão 3 modos | **3 de 3** (assistant / copilot / auto) |
 | 9 Painel métricas | Parcial |
 | 10 Similarity score | Não real |
-| 11 LGPD | Pedido de exclusão acknowledged (sem purge imediato); export ok |
+| 11 LGPD | Pedido acknowledged (sem purge imediato); export ZIP completo; retenção `auto_purge` agendada; purge org completo |
 | 12 Escala SaaS | Design ok; ops com queue:work |
 | 13 Diferenciais | Não |
 
