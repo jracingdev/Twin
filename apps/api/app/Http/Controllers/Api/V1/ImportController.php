@@ -25,6 +25,7 @@ class ImportController extends Controller
             'source' => 'required|in:'.self::SOURCES,
             'channel' => 'nullable|in:'.self::CHANNELS,
             'consent_id' => 'required|integer',
+            'owner_name' => 'nullable|string|max:120',
             'file' => 'required|file|max:512000',
         ]);
 
@@ -71,6 +72,10 @@ class ImportController extends Controller
         }
 
         $metadata = $this->buildChannelMetadata($data);
+        $ownerName = trim((string) ($data['owner_name'] ?? ''));
+        if ($ownerName !== '') {
+            $metadata['owner_name'] = $ownerName;
+        }
 
         if ($data['source'] === 'zip') {
             $channel = $data['channel'] ?? $metadata['channel'] ?? null;

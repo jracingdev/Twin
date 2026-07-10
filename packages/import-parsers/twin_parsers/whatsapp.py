@@ -72,9 +72,24 @@ def _is_system(body: str) -> bool:
     return any(m in lower for m in SYSTEM_MARKERS)
 
 
+def _infer_owner(senders: list[str]) -> str | None:
+    """Fallback: most frequent sender (typical for sales 1:1 exports)."""
+    if not senders:
+        return None
+    counts: dict[str, int] = {}
+    for s in senders:
+        key = s.strip()
+        if key:
+            counts[key] = counts.get(key, 0) + 1
+    if not counts:
+        return None
+    return max(counts, key=counts.get)
+
+
 def parse_whatsapp(text: str, owner_name: str | None = None) -> list[ParsedMessage]:
     messages: list[ParsedMessage] = []
     patterns = [WA_PATTERN_BR, WA_PATTERN_US, WA_PATTERN_ANDROID, WA_PATTERN_ANDROID_US]
+    raw_rows: list[tuple[str, str, datetime]] = []
 
     for pattern in patterns:
         for m in pattern.finditer(text):
@@ -92,22 +107,30 @@ def parse_whatsapp(text: str, owner_name: str | None = None) -> list[ParsedMessa
                 continue
 
             dt = _parse_dt(date_s, time_s, am_pm)
-            sender = sender.strip()
-            role = "user"
-            if owner_name:
-                role = "user" if sender.lower() == owner_name.lower() else "contact"
+            raw_rows.append((sender.strip(), body, dt))
 
-            messages.append(
-                ParsedMessage(
-                    contact=sender,
-                    body=body,
-                    role=role,
-                    sent_at=dt,
-                    channel="whatsapp",
-                )
-            )
-
-        if messages:
+        if raw_rows:
             break
+
+    owner = (owner_name or "").strip() or None
+    if not owner:
+        owner = _infer_owner([s for s, _, _ in raw_rows])
+
+    owner_l = owner.lower() if owner else None
+    for sender, body, dt in raw_rows:
+        if owner_l:
+            role = "user" if sender.lower() == owner_l else "contact"
+        else:
+            role = "user"
+
+        messages.append(
+            ParsedMessage(
+                contact=sender,
+                body=body,
+                role=role,
+                sent_at=dt,
+                channel="whatsapp",
+            )
+        )
 
     return messages

@@ -92,12 +92,13 @@ def ingest_batch_task(
     source: str,
     content_b64: str,
     channel: str | None = None,
+    owner_name: str | None = None,
 ):
     from app.services.ingest_service import process_ingest_batch
 
     try:
         return process_ingest_batch(
-            tenant_id, twin_id, batch_id, source, content_b64, channel
+            tenant_id, twin_id, batch_id, source, content_b64, channel, owner_name
         )
     except Exception as exc:
         notify_job_complete(

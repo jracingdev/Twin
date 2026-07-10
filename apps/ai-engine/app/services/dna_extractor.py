@@ -103,9 +103,9 @@ def extract_behavioral_dna(messages: list[dict]) -> dict[str, Any]:
         "radar": radar,
         "similarity_baseline": similarity_baseline,
         "intensity_presets": {
-            "light": {"temperature": 0.5, "style_weight": 0.3},
-            "moderate": {"temperature": 0.7, "style_weight": 0.6},
-            "advanced": {"temperature": 0.8, "style_weight": 0.85},
+            "light": {"temperature": 0.5, "style_weight": 0.3, "few_shot_k": 2},
+            "moderate": {"temperature": 0.7, "style_weight": 0.6, "few_shot_k": 3},
+            "advanced": {"temperature": 0.8, "style_weight": 0.85, "few_shot_k": 5},
             "ultra": {"temperature": 0.9, "style_weight": 1.0, "few_shot_k": 8},
         },
         # Backward compatibility (v1 consumers)

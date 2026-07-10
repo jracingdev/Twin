@@ -65,6 +65,7 @@ export default function ImportPage() {
   }>({ ok: false, message: "", checking: true });
   const [file, setFile] = useState<File | null>(null);
   const [channel, setChannel] = useState<ImportChannelId>("whatsapp");
+  const [ownerName, setOwnerName] = useState("");
   const [consentId, setConsentId] = useState<string | null>(null);
   const [consentStatus, setConsentStatus] = useState<ConsentStatus>("checking");
   const [consentError, setConsentError] = useState("");
@@ -163,6 +164,9 @@ export default function ImportPage() {
       form.append("source", uploadSource);
       form.append("channel", channel);
       form.append("consent_id", consentId);
+      if (ownerName.trim()) {
+        form.append("owner_name", ownerName.trim());
+      }
       form.append("file", file);
 
       setProgress("Enviando arquivo…");
@@ -275,13 +279,38 @@ export default function ImportPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <h1 className="text-3xl font-bold neon-text">Importar conversas</h1>
+        <h1 className="text-3xl font-bold neon-text">Clonar vendedor</h1>
         <Link
           href="/import/channels"
           className="text-sm text-twin-cyan hover:underline"
         >
           Ver todos os canais
         </Link>
+      </div>
+
+      <div className="glass space-y-2 border border-twin-magenta/25 p-5">
+        <p className="font-medium text-twin-magenta">Do export ao agente (4 passos)</p>
+        <ol className="list-decimal space-y-1 pl-5 text-sm text-twin-muted">
+          <li>
+            <strong className="text-white">Importar</strong> conversas do melhor vendedor
+            (abaixo) — informe o nome dele como no WhatsApp/Telegram.
+          </li>
+          <li>
+            No twin, ative <strong className="text-white">Modo vendedor</strong> e a
+            intensidade.
+          </li>
+          <li>
+            Conecte{" "}
+            <Link href="/settings/channels" className="text-twin-cyan hover:underline">
+              WhatsApp Business ou Telegram
+            </Link>{" "}
+            apontando para esse twin.
+          </li>
+          <li>
+            Modo <strong className="text-white">Agente</strong> = responde sozinho;{" "}
+            <strong className="text-white">Copiloto</strong> = aprova na Inbox.
+          </li>
+        </ol>
       </div>
 
       <div className="glass space-y-4 p-6">
@@ -352,6 +381,21 @@ export default function ImportPage() {
             As mensagens importadas treinarão o twin selecionado acima.
           </p>
         )}
+
+        <label className="block text-sm text-twin-muted">
+          Nome do vendedor no export (obrigatório para clone fiel)
+        </label>
+        <input
+          type="text"
+          value={ownerName}
+          onChange={(e) => setOwnerName(e.target.value)}
+          placeholder="Ex.: João Silva — exatamente como aparece nas linhas do .txt"
+          className="w-full max-w-md rounded border border-twin-cyan/20 bg-black/40 px-3 py-2 text-sm"
+        />
+        <p className="max-w-xl text-xs text-twin-muted">
+          Sem esse nome, o WhatsApp mistura fala do cliente com a do vendedor no DNA.
+          Se vazio, o parser tenta inferir o remetente mais frequente (heurística).
+        </p>
 
         <div
           className="flex min-h-[160px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-twin-cyan/30 hover:border-twin-cyan/60"

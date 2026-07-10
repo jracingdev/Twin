@@ -78,9 +78,9 @@ Configure em [Configurações → Canais](/settings/channels) ao conectar ou edi
 
 | Modo | Comportamento na UI | Comportamento no código |
 |------|---------------------|-------------------------|
-| **Assistente** | Só gera sugestões — nunca envia automaticamente | Cria `ResponseSuggestion` com status `pending` |
-| **Copiloto (aprovação)** | Sugestões vão para a [Inbox](/inbox) antes de enviar | **Idêntico ao assistente** — também cria sugestão `pending` |
-| **Agente (autônomo)** | O twin responde sozinho no canal (ex.: WhatsApp) quando a confiança atinge o limiar | Se score ≥ limiar → envia via `SendChannelMessageJob` + registra sugestão `sent`; senão → inbox (`auto_fallback`) |
+| **Assistente** | Só gera sugestões — nunca envia automaticamente | `ResponseSuggestion` pending **sem** `platform_meta` (sem caminho de envio) |
+| **Copiloto (aprovação)** | Sugestões vão para a [Inbox](/inbox) antes de enviar | Pending **com** `platform_meta` → “Aprovar e enviar” dispara `SendChannelMessageJob` |
+| **Agente (autônomo)** | O twin responde sozinho quando a confiança atinge o limiar | Score ≥ limiar → `SendChannelMessageJob`; senão → inbox (`auto_fallback`) |
 
 ### Limiar de confiança (modo agente)
 
@@ -89,7 +89,7 @@ Configure em [Configurações → Canais](/settings/channels) ao conectar ou edi
 - Abaixo do limiar, a resposta vira sugestão na inbox com metadado `auto_fallback: true` em vez de ser enviada ao contato.
 - No modo agente, o pipeline envia o **histórico recente da conversa** e a memória de sessão ao AI Engine, para o vendedor clonado continuar o diálogo (não só a última mensagem).
 
-> **Nota:** Hoje `assistant` e `copilot` são tratados da mesma forma no backend (`ProcessChannelMessageJob`). A diferença é apenas conceitual na interface; ambos exigem aprovação manual na [Inbox](/inbox) para enviar ao canal.
+> **RBAC:** criar/editar/remover canais exige papel **owner** ou **admin**. Guia de conexão: [connect-channels-seller.md](./connect-channels-seller.md).
 
 ---
 
@@ -199,9 +199,9 @@ Envie `/start` ou qualquer texto ao bot. Mensagens **somente texto** são proces
 | Sem Baileys / Evolution | Apenas WhatsApp **Meta Cloud API** oficial |
 | Somente texto | Mídia, áudio, stickers e reações são ignorados (`normalize` retorna `null`) |
 | Discord inbound frágil | Recepção de mensagens depende de payload type 0; setup típico de bot Discord pode não disparar o pipeline |
-| `assistant` = `copilot` no código | Ambos criam sugestão pendente; envio só após aprovação na inbox |
+| `assistant` ≠ `copilot` | Assistente não inclui `platform_meta` (sem envio); Copiloto inclui e permite aprovar na Inbox |
 | Um twin por credencial | Cada conexão de canal vincula um twin específico |
-| Assinatura obrigatória em produção | WhatsApp exige `app_secret`; sem ele, webhooks são rejeitados em `APP_ENV=production` |
+| Assinatura obrigatória em produção | WhatsApp exige `app_secret`; Telegram exige `secret_token` em `APP_ENV=production` |
 
 ---
 

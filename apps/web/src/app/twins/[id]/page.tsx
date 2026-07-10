@@ -120,7 +120,7 @@ export default function TwinDetailPage() {
                   checked={sellerMode}
                   onChange={(e) => setSellerMode(e.target.checked)}
                 />
-                Modo vendedor
+                Modo vendedor (clone comercial)
               </label>
               <button
                 type="button"
@@ -132,6 +132,33 @@ export default function TwinDetailPage() {
               </button>
             </div>
             {saveMsg && <p className="text-sm text-twin-cyan">{saveMsg}</p>}
+
+            <div className="rounded-lg border border-twin-magenta/20 bg-black/20 p-4 text-sm">
+              <p className="font-medium text-twin-magenta">Checklist — twin do melhor vendedor</p>
+              <ol className="mt-2 list-decimal space-y-1 pl-5 text-twin-muted">
+                <li>
+                  <Link href={`/import?twin=${twinId}`} className="text-twin-cyan hover:underline">
+                    Importar
+                  </Link>{" "}
+                  exportações com o nome do vendedor.
+                </li>
+                <li>Ativar Modo vendedor + intensidade (acima) e salvar.</li>
+                <li>
+                  <Link href="/settings/channels" className="text-twin-cyan hover:underline">
+                    Conectar WhatsApp Business ou Telegram
+                  </Link>{" "}
+                  apontando para este twin.
+                </li>
+                <li>
+                  Modo Agente = auto-reply; Copiloto ={" "}
+                  <Link href="/inbox" className="text-twin-cyan hover:underline">
+                    Inbox
+                  </Link>
+                  .
+                </li>
+              </ol>
+            </div>
+
             <div className="flex flex-wrap gap-3 pt-2">
               <Link
                 href={`/import?twin=${twinId}`}

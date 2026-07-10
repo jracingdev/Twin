@@ -30,15 +30,30 @@ class MemoryService:
         query: str,
         contact_id: str | None = None,
         top_k: int = 8,
+        *,
+        style_only: bool = False,
     ) -> dict[str, Any]:
-        filt = {"contact_id": {"$eq": contact_id}} if contact_id else None
-        msgs = search(tenant_id, twin_id, "msgs", query, top_k=top_k, filter_meta=filt)
+        """Retrieve style corpus + optional contact memories.
+
+        Style messages (namespace msgs) are NEVER filtered by live contact_id:
+        import indexes seller lines as contact_id=self, while channel webhooks
+        pass MySQL customer UUIDs — filtering would return zero style hits.
+        """
+        # Seller writing style: global twin corpus (no contact filter).
+        msgs = search(tenant_id, twin_id, "msgs", query, top_k=top_k, filter_meta=None)
         mem = search(tenant_id, twin_id, "memory", query, top_k=5)
-        contacts = (
-            search(tenant_id, twin_id, "contacts", query, top_k=3, filter_meta=filt)
-            if contact_id
-            else []
-        )
+
+        contacts: list = []
+        if contact_id and not style_only:
+            contacts = search(
+                tenant_id,
+                twin_id,
+                "contacts",
+                query,
+                top_k=3,
+                filter_meta={"contact_id": {"$eq": contact_id}},
+            )
+
         return {"messages": msgs, "memories": mem, "contacts": contacts}
 
     def upsert_memory(self, tenant_id: str, twin_id: str, record: dict) -> None:

@@ -18,6 +18,7 @@ class IngestRequest(BaseModel):
     source: str
     content: str
     channel: str | None = None
+    owner_name: str | None = None
 
 
 def _use_celery() -> bool:
@@ -37,6 +38,7 @@ def ingest_batch(req: IngestRequest):
                 req.source,
                 req.content,
                 req.channel,
+                req.owner_name,
             )
             return {
                 "batch_id": req.batch_id,
@@ -54,6 +56,7 @@ def ingest_batch(req: IngestRequest):
             req.source,
             req.content,
             req.channel,
+            req.owner_name,
         )
     except Exception as exc:
         from app.services.laravel_callback import notify_job_complete

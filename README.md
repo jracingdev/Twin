@@ -22,7 +22,19 @@ cd d:\twin
 
 Guia completo: [docs/deployment/local-windows.md](docs/deployment/local-windows.md)
 
+**Piloto (clone vendedor → WhatsApp/Telegram):** [docs/product/piloto-primeiros-passos.md](docs/product/piloto-primeiros-passos.md) · [docs/product/connect-channels-seller.md](docs/product/connect-channels-seller.md)
+
 **MySQL no servidor:** [docs/deployment/mysql-server.md](docs/deployment/mysql-server.md) — scripts em `scripts/mysql/`
+
+## Caso de uso principal
+
+1. Importar export do melhor vendedor (`/import` + nome do vendedor).
+2. Ativar **Modo vendedor** no twin.
+3. Conectar WhatsApp Business API ou Telegram (`/settings/channels`, owner/admin).
+4. Modo **Agente** + worker `--queue=default,channel`.
+5. Cliente manda texto → clone responde (ou Inbox no Copiloto).
+
+> WhatsApp **pessoal**/Web = só extensão copiloto. Auto-envio = Meta Cloud API.
 
 ## Comandos após pull
 
@@ -49,12 +61,12 @@ cd d:\twin\apps\api
 vendor\bin\phpunit
 ```
 
-Com fila em background (Redis):
+Com fila em background (Redis) — **obrigatório incluir `channel` para agente live**:
 
 ```powershell
 # .env: QUEUE_CONNECTION=redis
-php artisan queue:work
-# AI Engine: CELERY_INGEST=true + worker celery
+php artisan queue:work redis --queue=default,channel --sleep=3 --tries=3
+# AI Engine: CELERY_INGEST=true + worker celery (opcional; ingest também roda sync)
 ```
 
 ## Variáveis de ambiente

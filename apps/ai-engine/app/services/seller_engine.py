@@ -57,10 +57,19 @@ class SellerEngine:
 
     def detect_opportunity(self, text: str) -> dict[str, Any] | None:
         low = text.lower()
-        if any(w in low for w in ("orçamento", "preço", "peça", "estoque", "prazo")):
+        if any(w in low for w in (
+            "orçamento", "orcamento", "preço", "preco", "peça", "peca",
+            "estoque", "prazo", "quanto custa", "valor", "disponível", "disponivel",
+            "quero comprar", "fechamos", "pedido",
+        )):
             return {"type": "sale_intent", "confidence": 0.8}
-        if any(w in low for w in ("não tenho", "caro", "depois")):
+        if any(w in low for w in (
+            "não tenho", "nao tenho", "caro", "depois", "desconto",
+            "mais barato", "concorrente", "vou pensar",
+        )):
             return {"type": "objection", "confidence": 0.7}
+        if any(w in low for w in ("obrigado", "valeu", "fechado", "pode enviar", "manda o pix")):
+            return {"type": "closing", "confidence": 0.75}
         return None
 
     def metrics(self, accepted: int, rejected: int) -> dict[str, float]:

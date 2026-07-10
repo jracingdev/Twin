@@ -55,6 +55,15 @@ class ProcessChannelMessageJob implements ShouldQueue
         $replyMode = ChannelCredential::normalizeReplyMode($credential?->reply_mode);
         $agentMode = $replyMode === 'auto';
 
+        $sellerMode = (bool) $twin->seller_mode;
+        if ($sellerMode && ! $plans->canUseSellerMode($this->organizationId)) {
+            Log::info('ProcessChannelMessageJob: seller_mode disabled by plan', [
+                'twin_id' => $this->twinId,
+                'organization_id' => $this->organizationId,
+            ]);
+            $sellerMode = false;
+        }
+
         $suggestPayload = [
             'tenant_id' => $this->organizationId,
             'twin_id' => $twin->id,
@@ -62,7 +71,7 @@ class ProcessChannelMessageJob implements ShouldQueue
             'contact_id' => $message->contact_id,
             'session_id' => $this->conversationId,
             'intensity' => $twin->intensity,
-            'seller_mode' => $twin->seller_mode,
+            'seller_mode' => $sellerMode,
             'dna' => $twin->activeDna?->payload,
             'channel' => $this->channel,
             'agent_mode' => $agentMode,

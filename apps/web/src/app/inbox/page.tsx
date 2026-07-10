@@ -75,7 +75,7 @@ export default function InboxPage() {
         <div>
           <h1 className="text-3xl font-bold neon-text">Caixa de entrada</h1>
           <p className="mt-1 text-sm text-twin-muted">
-            Revise sugestões antes de enviar — ideal para atendimento comercial.
+            Revise sugestões do Copiloto / fallback do Agente antes de enviar ao canal.
           </p>
         </div>
         {metrics && (

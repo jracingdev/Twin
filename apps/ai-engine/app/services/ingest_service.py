@@ -28,6 +28,7 @@ def process_ingest_batch(
     source: str,
     content_b64: str,
     channel: str | None = None,
+    owner_name: str | None = None,
 ) -> dict:
     raw = base64.b64decode(content_b64)
     source = source.lower()
@@ -35,25 +36,34 @@ def process_ingest_batch(
         raise ValueError(f"Fonte de importação não suportada: {source}")
 
     default_channel = channel or (source if source not in ("zip", "json", "csv") else None)
-    messages = parse_export(source, raw, default_channel=default_channel)
+    messages = parse_export(
+        source, raw, default_channel=default_channel, owner_name=owner_name or None
+    )
 
     records = []
     db_messages = []
+    user_count = 0
+    contact_count = 0
     for i, m in enumerate(messages):
         body = m.body[:8000]
         msg_channel = m.channel or source
 
         if m.role == "user":
+            user_count += 1
+            # Style corpus: mark as twin/self so live RAG never filters by customer UUID.
             records.append({
                 "_id": f"{batch_id}_{i}",
                 "chunk_text": body,
                 "message_id": f"{batch_id}_{i}",
                 "role": m.role,
-                "contact_id": m.contact or "unknown",
+                "contact_id": "self",
+                "speaker": m.contact or "unknown",
                 "source": msg_channel,
                 "channel": msg_channel,
                 "is_user_message": True,
             })
+        else:
+            contact_count += 1
 
         if len(db_messages) < 2000:
             db_messages.append({
@@ -73,6 +83,7 @@ def process_ingest_batch(
             "_id": f"pb_{batch_id}_{i}",
             "chunk_text": p["template"],
             "intent": p["intent"],
+            "vertical": p.get("vertical", "general"),
         }
         for i, p in enumerate(playbooks)
     ]
@@ -87,13 +98,31 @@ def process_ingest_batch(
             f"Import truncado em 2000 mensagens "
             f"(total parseado: {len(messages)}; indexáveis user: {len(records)})."
         )
+    if owner_name is None and source in ("whatsapp", "zip") and user_count and contact_count == 0:
+        hint = (
+            "Nenhum owner_name informado e não foi possível separar vendedor/cliente. "
+            "Reimporte com o nome do vendedor (como aparece no export) para um clone fiel."
+        )
+        warning = f"{warning} {hint}" if warning else hint
 
     result = {
         "batch_id": batch_id,
         "total_messages": len(messages),
         "processed_messages": count,
         "indexed_user_messages": min(len(records), 2000),
+        "seller_messages": user_count,
+        "contact_messages": contact_count,
+        "owner_name": owner_name,
         "messages": db_messages,
+        "playbooks": [
+            {
+                "intent": p.get("intent", "general"),
+                "template": p.get("template", ""),
+                "vertical": p.get("vertical", "general"),
+                "variables": p.get("variables", []),
+            }
+            for p in playbooks[:20]
+        ],
         "channels": channels_found,
         "truncated": truncated,
     }

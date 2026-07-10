@@ -79,6 +79,10 @@ class RAGEngine:
             seller_ctx = search(tenant_id, twin_id, "seller", text, top_k=3)
 
         opportunity = self.seller.detect_opportunity(text) if seller_mode else None
+        presets = (dna or {}).get("intensity_presets", {}).get(level, {})
+        few_shot_k = int(presets.get("few_shot_k") or {1: 2, 2: 3, 3: 5, 4: 8}.get(intensity, 3))
+        style_examples = style_examples[:few_shot_k]
+        temperature = float(presets.get("temperature") or {1: 0.5, 2: 0.7, 3: 0.8, 4: 0.9}.get(intensity, 0.7))
 
         prompt = self._build_prompt(
             text,
@@ -93,8 +97,9 @@ class RAGEngine:
             channel=channel,
             agent_mode=agent_mode,
             opportunity=opportunity,
+            intensity=intensity,
         )
-        suggestion = self._generate(prompt)
+        suggestion = self._generate(prompt, temperature=temperature)
         suggestion = postprocess(suggestion, dna or {}, intensity)
 
         corpus = self._corpus_for_scoring(ctx, dna)
@@ -164,6 +169,11 @@ class RAGEngine:
         if seller_mode:
             seller_ctx = search(tenant_id, twin_id, "seller", text, top_k=3)
 
+        presets = (dna or {}).get("intensity_presets", {}).get(level, {})
+        few_shot_k = int(presets.get("few_shot_k") or {1: 2, 2: 3, 3: 5, 4: 8}.get(intensity, 3))
+        style_examples = style_examples[:few_shot_k]
+        temperature = float(presets.get("temperature") or {1: 0.5, 2: 0.7, 3: 0.8, 4: 0.9}.get(intensity, 0.7))
+
         prompt = self._build_prompt(
             text,
             dna or {},
@@ -173,8 +183,9 @@ class RAGEngine:
             seller_ctx,
             seller_mode,
             conversation_history=conversation_history,
+            intensity=intensity,
         )
-        suggestion = self._generate(prompt)
+        suggestion = self._generate(prompt, temperature=temperature)
         suggestion = postprocess(suggestion, dna or {}, intensity)
 
         corpus = self._corpus_for_scoring(ctx, dna)
@@ -354,12 +365,14 @@ class RAGEngine:
         channel: str | None = None,
         agent_mode: bool = False,
         opportunity: dict | None = None,
+        intensity: int = 2,
     ) -> str:
         style = dna.get("writing_style", {})
         comm = dna.get("communication", {})
         presets = dna.get("intensity_presets", {}).get(level, {})
+        few_shot_k = int(presets.get("few_shot_k") or max(2, min(8, len(examples) or 3)))
         ex_text = "\n".join(
-            f"- {e.get('chunk_text', e.get('body', ''))[:200]}" for e in examples[:3]
+            f"- {e.get('chunk_text', e.get('body', ''))[:200]}" for e in examples[:few_shot_k]
         )
         mem_text = "\n".join(
             f"- {m.get('chunk_text', m.get('label', ''))[:150]}" for m in ctx.get("memories", [])[:3]
@@ -374,6 +387,7 @@ class RAGEngine:
         emoji_rate = style.get("emoji_rate", comm.get("taxa_emojis", 0.1))
         greetings = style.get("greeting_patterns", comm.get("padroes_saudacao", ["Olá"]))
         slang = style.get("slang_lexicon", comm.get("girias", []))
+        avg_len = style.get("avg_message_length", comm.get("tamanho_medio_mensagem", 80))
 
         psych = dna.get("psychological_estimate", {})
         psych_hint = ""
@@ -401,12 +415,20 @@ class RAGEngine:
             )
 
         channel_hint = ""
-        if channel == "whatsapp" or agent_mode:
+        if channel in ("whatsapp", "telegram") or agent_mode:
             channel_hint = (
-                "\nCanal: WhatsApp. Respostas curtas (1–3 frases), naturais no chat. "
-                "Não use markdown, títulos nem listas longas. "
-                "Continue o fio da conversa; não reinicie com saudação se já estiver no meio do diálogo."
+                "\nCanal de chat (WhatsApp/Telegram). Respostas curtas (1–3 frases), "
+                "tom de pessoa real digitando no celular. "
+                "NÃO use markdown, títulos, bullets nem listas. "
+                "Continue o fio; não reinicie com saudação se já estiver no meio do diálogo."
             )
+
+        intensity_hint = {
+            1: "Imite de leve — priorize clareza; use pouco do vocabulário típico.",
+            2: "Imite o jeito habitual: comprimento, formalidade e gírias do DNA.",
+            3: "Imite forte: espelhe frases, ritmo e emojis dos exemplos.",
+            4: "Clone máximo: soe indistinguível do vendedor nos exemplos (sem inventar fatos).",
+        }.get(intensity, "Imite o jeito habitual.")
 
         role_line = (
             "Você é o vendedor clonado (agente TWIN) atendendo o cliente em tempo real. "
@@ -425,12 +447,13 @@ class RAGEngine:
 
         return f"""{role_line}
 Intensidade de imitação: {level} (peso estilo: {presets.get('style_weight', 0.6)}).
-Formalidade: {formality}. Emojis: taxa {emoji_rate}.
+{intensity_hint}
+Formalidade: {formality}. Emojis: taxa {emoji_rate}. Comprimento típico: ~{avg_len} caracteres.
 Saudações típicas: {', '.join(greetings[:3])}.
 Gírias: {', '.join(slang[:5])}.{psych_hint}{channel_hint}{opportunity_hint}
 
-Exemplos de estilo:
-{ex_text or '- (sem exemplos ainda)'}
+Exemplos reais do estilo (copie o jeito, não copie fatos):
+{ex_text or '- (sem exemplos ainda — use o DNA acima)'}
 
 Memória relevante:
 {mem_text or '- (nenhuma)'}{seller_text}{history_block}{wm_block}
@@ -441,9 +464,9 @@ Mensagem recebida: {user_input}
 
 Resposta:"""
 
-    def _generate(self, prompt: str) -> str:
+    def _generate(self, prompt: str, temperature: float = 0.75) -> str:
         try:
-            return self._llm.generate(prompt, temperature=0.75, max_tokens=500)
+            return self._llm.generate(prompt, temperature=temperature, max_tokens=500)
         except Exception:
             from app.services.llm_providers.fallback_provider import FallbackProvider
 
