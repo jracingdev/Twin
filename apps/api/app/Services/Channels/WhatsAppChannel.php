@@ -27,7 +27,7 @@ class WhatsAppChannel implements ChannelInterface
     {
         $secret = $credentials['app_secret'] ?? '';
         if (! $secret) {
-            return ! app()->environment('production');
+            return false;
         }
 
         $sig = $request->header('X-Hub-Signature-256', '');

@@ -81,8 +81,21 @@ class ProcessChannelMessageJob implements ShouldQueue
             return;
         }
 
-        if (in_array($replyMode, ['assistant', 'copilot'], true)) {
-            $this->createPendingSuggestion($twin, $message, $reply, $result);
+        if ($replyMode === 'assistant') {
+            // Internal suggestion only — no channel send path (no platform_meta).
+            $this->createPendingSuggestion($twin, $message, $reply, $result, [
+                'reply_mode' => 'assistant',
+                'requires_approval' => false,
+            ], includePlatformMeta: false);
+
+            return;
+        }
+
+        if ($replyMode === 'copilot') {
+            $this->createPendingSuggestion($twin, $message, $reply, $result, [
+                'reply_mode' => 'copilot',
+                'requires_approval' => true,
+            ]);
 
             return;
         }
@@ -93,6 +106,8 @@ class ProcessChannelMessageJob implements ShouldQueue
 
             if ($score === null || $score < $threshold) {
                 $this->createPendingSuggestion($twin, $message, $reply, $result, [
+                    'reply_mode' => 'auto',
+                    'requires_approval' => true,
                     'auto_fallback' => true,
                     'score' => $score,
                     'threshold' => $threshold,
@@ -106,7 +121,10 @@ class ProcessChannelMessageJob implements ShouldQueue
             return;
         }
 
-        $this->createPendingSuggestion($twin, $message, $reply, $result);
+        $this->createPendingSuggestion($twin, $message, $reply, $result, [
+            'reply_mode' => $replyMode,
+            'requires_approval' => true,
+        ]);
     }
 
     private function createPendingSuggestion(
@@ -114,12 +132,23 @@ class ProcessChannelMessageJob implements ShouldQueue
         Message $message,
         string $reply,
         array $result,
-        array $extraMeta = []
+        array $extraMeta = [],
+        bool $includePlatformMeta = true
     ): void {
         $scoreBreakdown = $result['score_breakdown']
             ?? $result['similarity']
             ?? ($result['metadata']['score_breakdown'] ?? null)
             ?? ($result['metadata']['similarity_breakdown'] ?? null);
+
+        $meta = array_filter([
+            'channel' => $this->channel,
+            'conversation_id' => $this->conversationId,
+            'inbound_message_id' => $this->messageId,
+            'platform_meta' => $includePlatformMeta ? $this->platformMeta : null,
+            'source' => 'channel_webhook',
+            'score_breakdown' => $scoreBreakdown,
+            'seller_mode' => $twin->seller_mode,
+        ], fn ($v) => $v !== null);
 
         ResponseSuggestion::create([
             'twin_id' => $this->twinId,
@@ -129,15 +158,7 @@ class ProcessChannelMessageJob implements ShouldQueue
             'intensity' => $twin->intensity,
             'score' => $this->resolveResultScore($result),
             'status' => 'pending',
-            'metadata' => array_merge($result['metadata'] ?? [], array_filter([
-                'channel' => $this->channel,
-                'conversation_id' => $this->conversationId,
-                'inbound_message_id' => $this->messageId,
-                'platform_meta' => $this->platformMeta,
-                'source' => 'channel_webhook',
-                'score_breakdown' => $scoreBreakdown,
-                'seller_mode' => $twin->seller_mode,
-            ], fn ($v) => $v !== null), $extraMeta),
+            'metadata' => array_merge($result['metadata'] ?? [], $meta, $extraMeta),
         ]);
     }
 

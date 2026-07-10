@@ -80,14 +80,25 @@ def process_ingest_batch(
 
     channels_found = sorted({m.channel for m in messages if m.channel})
 
+    truncated = len(messages) > 2000 or len(records) > 2000
+    warning = None
+    if truncated:
+        warning = (
+            f"Import truncado em 2000 mensagens "
+            f"(total parseado: {len(messages)}; indexáveis user: {len(records)})."
+        )
+
     result = {
         "batch_id": batch_id,
         "total_messages": len(messages),
         "processed_messages": count,
-        "indexed_user_messages": len(records),
+        "indexed_user_messages": min(len(records), 2000),
         "messages": db_messages,
         "channels": channels_found,
+        "truncated": truncated,
     }
+    if warning:
+        result["warning"] = warning
 
     notify_job_complete(
         batch_id,

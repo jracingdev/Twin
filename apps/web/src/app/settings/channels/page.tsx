@@ -40,12 +40,14 @@ const REPLY_MODES: {
   {
     value: "assistant",
     label: "Assistente",
-    description: "Só gera sugestões — nunca envia automaticamente.",
+    description:
+      "Só gera sugestões internas — sem envio ao canal (sem botão de aprovar/enviar).",
   },
   {
     value: "copilot",
     label: "Copiloto (aprovação)",
-    description: "Sugestões vão para a inbox antes de enviar.",
+    description:
+      "Sugestões vão para a inbox com aprovação obrigatória antes de enviar no canal.",
   },
   {
     value: "auto",

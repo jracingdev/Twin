@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Organization;
-use App\Models\Plan;
 use App\Models\Subscription;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -17,8 +16,23 @@ class WebhookController extends Controller
         $secret = config('services.stripe.webhook_secret');
         $payload = $request->getContent();
         $sig = $request->header('Stripe-Signature');
+        $requireSignature = app()->environment('production') || filled($secret);
 
-        if ($secret && $sig) {
+        if (app()->environment('production') && blank($secret)) {
+            Log::error('Stripe webhook rejected: STRIPE_WEBHOOK_SECRET not configured in production');
+
+            return response('Webhook secret not configured', 503);
+        }
+
+        if ($requireSignature) {
+            if (blank($sig)) {
+                return response('Missing signature', 400);
+            }
+
+            if (blank($secret)) {
+                return response('Webhook secret not configured', 503);
+            }
+
             try {
                 $event = \Stripe\Webhook::constructEvent($payload, $sig, $secret);
             } catch (\Throwable $e) {
@@ -26,9 +40,8 @@ class WebhookController extends Controller
 
                 return response('Invalid signature', 400);
             }
-        } elseif ($secret) {
-            return response('Missing signature', 400);
         } else {
+            // Local/dev only when no secret is configured
             $event = json_decode($payload, false);
             if (! $event) {
                 return response('Invalid payload', 400);

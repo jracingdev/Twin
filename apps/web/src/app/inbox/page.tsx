@@ -125,6 +125,12 @@ export default function InboxPage() {
           const channel = item.metadata?.channel as string | undefined;
           const autoFallback = Boolean(item.metadata?.auto_fallback);
           const agentAuto = Boolean(item.metadata?.agent_auto);
+          const replyMode = (item.metadata?.reply_mode as string | undefined) ?? null;
+          const canApproveSend =
+            Boolean(item.metadata?.requires_approval) &&
+            Boolean(item.metadata?.platform_meta) &&
+            replyMode !== "assistant";
+          const isAssistantOnly = fromChannel && !canApproveSend && replyMode === "assistant";
           return (
             <li key={item.id} className="glass space-y-3 p-5">
               <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-twin-muted">
@@ -133,6 +139,11 @@ export default function InboxPage() {
                   {fromChannel && channel && (
                     <span className="ml-2 rounded bg-twin-magenta/20 px-2 py-0.5 text-twin-magenta">
                       {channel}
+                    </span>
+                  )}
+                  {isAssistantOnly && (
+                    <span className="ml-2 rounded bg-twin-cyan/10 px-2 py-0.5 text-twin-muted">
+                      assistente · só sugestão
                     </span>
                   )}
                   {autoFallback && (
@@ -179,7 +190,7 @@ export default function InboxPage() {
                 >
                   Copiar
                 </button>
-                {item.status === "pending" && fromChannel && (
+                {item.status === "pending" && canApproveSend && (
                   <button
                     type="button"
                     onClick={() => void handleSend(item)}
@@ -188,7 +199,7 @@ export default function InboxPage() {
                     Aprovar e enviar
                   </button>
                 )}
-                {item.status === "pending" && !fromChannel && (
+                {item.status === "pending" && !canApproveSend && (
                   <>
                     <button
                       type="button"

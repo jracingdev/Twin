@@ -66,13 +66,13 @@ Route::get('v1/docs/ui', [DocsController::class, 'swaggerUi']);
 
 Route::prefix('v1')->group(function () {
 
-    Route::post('login', [AuthController::class, 'login']);
+    Route::post('login', [AuthController::class, 'login'])->middleware('throttle:10,1');
 
-    Route::post('register', [AuthController::class, 'register']);
+    Route::post('register', [AuthController::class, 'register'])->middleware('throttle:5,1');
 
-    Route::post('forgot-password', [AuthController::class, 'forgotPassword']);
+    Route::post('forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:5,1');
 
-    Route::post('reset-password', [AuthController::class, 'resetPassword']);
+    Route::post('reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:5,1');
 
     // Sessão do usuário — landlord only; /me descobre a org (não exige X-Tenant ainda)
     Route::middleware(['auth:sanctum'])->group(function () {
@@ -101,9 +101,9 @@ Route::prefix('v1')->group(function () {
 
         Route::get('billing/plans', [BillingController::class, 'plans']);
 
-        Route::post('billing/checkout', [BillingController::class, 'checkout']);
+        Route::post('billing/checkout', [BillingController::class, 'checkout'])->middleware('role:owner,admin');
 
-        Route::post('billing/portal', [BillingController::class, 'portal']);
+        Route::post('billing/portal', [BillingController::class, 'portal'])->middleware('role:owner,admin');
 
 
 
@@ -115,15 +115,15 @@ Route::prefix('v1')->group(function () {
 
         Route::get('lgpd/exports/{export}/download', [LgpdController::class, 'downloadExport']);
 
-        Route::post('lgpd/account-deletion', [LgpdController::class, 'requestAccountDeletion']);
+        Route::post('lgpd/account-deletion', [LgpdController::class, 'requestAccountDeletion'])->middleware('role:owner');
 
 
 
         Route::get('webhooks/settings', [WebhookSettingsController::class, 'show']);
 
-        Route::put('webhooks/settings', [WebhookSettingsController::class, 'update']);
+        Route::put('webhooks/settings', [WebhookSettingsController::class, 'update'])->middleware('role:owner,admin');
 
-        Route::post('webhooks/test', [WebhookSettingsController::class, 'test']);
+        Route::post('webhooks/test', [WebhookSettingsController::class, 'test'])->middleware('role:owner,admin');
 
 
 
@@ -151,7 +151,7 @@ Route::prefix('v1')->group(function () {
 
         Route::delete('twins/{twin}/playbooks/{playbook}', [PlaybookController::class, 'destroy']);
 
-        Route::post('twins/{twin}/purge', [TwinController::class, 'purge'])->name('twins.purge');
+        Route::post('twins/{twin}/purge', [TwinController::class, 'purge'])->middleware('role:owner')->name('twins.purge');
 
         Route::get('twins/{twin}/memory-entities', [MemoryEntityController::class, 'index']);
         Route::post('twins/{twin}/memory-entities', [MemoryEntityController::class, 'store']);
@@ -202,11 +202,11 @@ Route::prefix('v1')->group(function () {
 
         Route::get('timeline', [TimelineController::class, 'index']);
 
-        Route::get('api-keys', [ApiKeyController::class, 'index']);
+        Route::get('api-keys', [ApiKeyController::class, 'index'])->middleware('role:owner,admin');
 
-        Route::post('api-keys', [ApiKeyController::class, 'store']);
+        Route::post('api-keys', [ApiKeyController::class, 'store'])->middleware('role:owner,admin');
 
-        Route::delete('api-keys/{apiKey}', [ApiKeyController::class, 'destroy']);
+        Route::delete('api-keys/{apiKey}', [ApiKeyController::class, 'destroy'])->middleware('role:owner,admin');
 
 
 
@@ -216,11 +216,11 @@ Route::prefix('v1')->group(function () {
 
         Route::get('channel-credentials', [ChannelCredentialController::class, 'index']);
 
-        Route::post('channel-credentials', [ChannelCredentialController::class, 'store']);
+        Route::post('channel-credentials', [ChannelCredentialController::class, 'store'])->middleware('role:owner,admin');
 
-        Route::put('channel-credentials/{channelCredential}', [ChannelCredentialController::class, 'update']);
+        Route::put('channel-credentials/{channelCredential}', [ChannelCredentialController::class, 'update'])->middleware('role:owner,admin');
 
-        Route::delete('channel-credentials/{channelCredential}', [ChannelCredentialController::class, 'destroy']);
+        Route::delete('channel-credentials/{channelCredential}', [ChannelCredentialController::class, 'destroy'])->middleware('role:owner,admin');
 
     });
 
@@ -228,9 +228,10 @@ Route::prefix('v1')->group(function () {
 
 
 
-Route::post('webhooks/stripe', [WebhookController::class, 'stripe']);
+Route::post('webhooks/stripe', [WebhookController::class, 'stripe'])->middleware('throttle:60,1');
 
-Route::match(['get', 'post'], 'webhooks/channel/{platform}/{webhookToken}', [ChannelWebhookController::class, 'handle']);
+Route::match(['get', 'post'], 'webhooks/channel/{platform}/{webhookToken}', [ChannelWebhookController::class, 'handle'])
+    ->middleware('throttle:120,1');
 
 
 
@@ -239,4 +240,3 @@ Route::prefix('internal')->middleware(['internal.secret', 'tenant', 'tenant.prov
     Route::post('jobs/{id}/complete', [InternalJobCallbackController::class, 'complete']);
 
 });
-

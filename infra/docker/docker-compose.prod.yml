@@ -39,16 +39,18 @@ services:
       - mysql
       - redis
 
-  horizon:
+  # queue:work — Horizon não está no composer; evita Compose quebrado em prod
+  queue-worker:
     build:
       context: ../../apps/api
       dockerfile: Dockerfile
     restart: unless-stopped
-    command: php artisan horizon
+    command: php artisan queue:work redis --queue=default,channel --sleep=1 --tries=3
     env_file: ../../.env
     depends_on:
       - api
       - redis
+
 
   ai-engine:
     build:

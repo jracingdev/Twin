@@ -2,6 +2,10 @@
 
 namespace App\Jobs;
 
+use App\Models\BehavioralDna;
+use App\Models\MemoryEdge;
+use App\Models\MemoryEntity;
+use App\Models\ResponseSuggestion;
 use App\Models\Twin;
 use App\Services\AiEngineClient;
 use Illuminate\Bus\Queueable;
@@ -28,11 +32,28 @@ class PurgeTwinDataJob implements ShouldQueue
         ]);
 
         $twin = Twin::find($this->twinId);
-        if ($twin) {
-            Storage::disk(config('twin.import_disk', 'local'))->deleteDirectory("imports/{$this->twinId}");
-            $twin->messages()->delete();
-            $twin->imports()->delete();
-            $twin->delete();
+        if (! $twin) {
+            return;
         }
+
+        Storage::disk(config('twin.import_disk', 'local'))->deleteDirectory("imports/{$this->twinId}");
+
+        ResponseSuggestion::where('twin_id', $twin->id)->delete();
+        BehavioralDna::where('twin_id', $twin->id)->delete();
+
+        $entityIds = MemoryEntity::where('twin_id', $twin->id)->pluck('id');
+        if ($entityIds->isNotEmpty()) {
+            MemoryEdge::where(function ($q) use ($entityIds) {
+                $q->whereIn('subject_id', $entityIds)->orWhereIn('object_id', $entityIds);
+            })->delete();
+            MemoryEntity::where('twin_id', $twin->id)->delete();
+        }
+
+        $twin->messages()->delete();
+        $twin->conversations()->delete();
+        $twin->imports()->delete();
+        $twin->sellerPlaybooks()->delete();
+        $twin->trainingJobs()->delete();
+        $twin->delete();
     }
 }

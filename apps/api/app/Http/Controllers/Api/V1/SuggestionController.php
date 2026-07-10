@@ -55,13 +55,23 @@ class SuggestionController extends Controller
         $text = $data['text'] ?? $suggestion->suggested_text;
         $meta = $suggestion->metadata ?? [];
 
+        // Assistant mode: internal suggestion only (no platform_meta / requires_approval).
+        $canSendChannel = ! empty($meta['platform_meta'])
+            && ($meta['requires_approval'] ?? false)
+            && ($meta['reply_mode'] ?? 'copilot') !== 'assistant'
+            && ! empty($meta['channel'])
+            && ! empty($meta['conversation_id']);
+
         $suggestion->update([
             'suggested_text' => $text,
-            'status' => 'sent',
-            'metadata' => array_merge($meta, ['sent_at' => now()->toIso8601String()]),
+            'status' => $canSendChannel ? 'sent' : 'accepted',
+            'metadata' => array_merge($meta, [
+                'sent_at' => now()->toIso8601String(),
+                'channel_send_skipped' => ! $canSendChannel,
+            ]),
         ]);
 
-        if (! empty($meta['channel']) && ! empty($meta['conversation_id'])) {
+        if ($canSendChannel) {
             $replyMessage = Message::create([
                 'twin_id' => $suggestion->twin_id,
                 'conversation_id' => $meta['conversation_id'],
@@ -85,8 +95,8 @@ class SuggestionController extends Controller
         $this->acceptance->handleAccepted(
             $suggestion->fresh(),
             tenant('id'),
-            'sent',
-            ['sent_via_channel' => ! empty($meta['channel'])],
+            $canSendChannel ? 'sent' : 'accepted',
+            ['sent_via_channel' => $canSendChannel],
         );
 
         return response()->json($suggestion->fresh());

@@ -7,12 +7,14 @@ from app.routers import dna, feedback, ingest, memory, playbooks, replay, respon
 
 app = FastAPI(title="TWIN AI Engine", version="1.0.0")
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+_cors_origins = [o.strip() for o in (settings.cors_origins or "").split(",") if o.strip()]
+if _cors_origins:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=_cors_origins,
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["*"],
+    )
 
 app.include_router(ingest.router, prefix="/ai", tags=["ingest"], dependencies=[Depends(verify_internal_secret)])
 app.include_router(dna.router, prefix="/ai", tags=["dna"], dependencies=[Depends(verify_internal_secret)])

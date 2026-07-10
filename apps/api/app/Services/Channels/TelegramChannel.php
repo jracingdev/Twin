@@ -13,11 +13,22 @@ class TelegramChannel implements ChannelInterface
         return null;
     }
 
+    /**
+     * When credentials include secret_token (set via setWebhook), require
+     * X-Telegram-Bot-Api-Secret-Token. Without secret_token, identity still
+     * relies on the unguessable webhook_token in the URL — configure
+     * secret_token in production for defense in depth.
+     */
     public function verifySignature(Request $request, array $credentials): bool
     {
-        // Telegram security is enforced via the secret_token passed during setWebhook.
-        // We already validate identity through the webhook_token in the URL.
-        return true;
+        $expected = $credentials['secret_token'] ?? '';
+        if ($expected === '') {
+            return true;
+        }
+
+        $provided = $request->header('X-Telegram-Bot-Api-Secret-Token', '');
+
+        return $provided !== '' && hash_equals($expected, $provided);
     }
 
     public function normalize(array $payload, array $credentials): ?array

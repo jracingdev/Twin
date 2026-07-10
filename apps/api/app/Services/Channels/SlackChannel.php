@@ -23,8 +23,9 @@ class SlackChannel implements ChannelInterface
     {
         $secret = $credentials['signing_secret'] ?? '';
         if (! $secret) {
-            return true;
+            return false;
         }
+
 
         $timestamp = $request->header('X-Slack-Request-Timestamp', '');
         $sig = $request->header('X-Slack-Signature', '');

@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     laravel_api_url: str = "http://127.0.0.1:8080"
     embed_model: str = "multilingual-e5-large"
     celery_ingest: bool = False
+    # Comma-separated origins; empty = no browser CORS (API-to-API only).
+    cors_origins: str = ""
 
 
 settings = Settings()

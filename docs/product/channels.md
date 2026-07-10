@@ -151,10 +151,13 @@ Substitua `{TOKEN}` pelo token do bot e `{WEBHOOK_URL}` pela URL do TWIN:
 
 ```bash
 curl -X POST "https://api.telegram.org/bot{TOKEN}/setWebhook" \
-  -d "url={WEBHOOK_URL}"
+  -d "url={WEBHOOK_URL}" \
+  -d "secret_token={SECRET_TOKEN}"
 ```
 
 Resposta esperada: `{"ok":true,"result":true,"description":"Webhook was set"}`.
+
+**Recomendado em produção:** passe `secret_token` no `setWebhook` e grave o mesmo valor em `credentials.secret_token` do canal no TWIN. A API valida o header `X-Telegram-Bot-Api-Secret-Token`. Sem `secret_token`, a identidade continua dependendo do `webhook_token` na URL.
 
 Para conferir:
 

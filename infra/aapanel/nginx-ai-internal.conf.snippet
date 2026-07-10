@@ -3,6 +3,8 @@
 # O motor IA deve escutar somente em 127.0.0.1:8100 (supervisor/PM2).
 #
 # Não crie site público para a porta 8100. Firewall: não abra 8100.
+# Em produção aaPanel: NÃO adicione location /ai/ no vhost público —
+# a API Laravel chama o AI engine via AI_ENGINE_URL=http://127.0.0.1:8100.
 
 # Exemplo de server block LOCAL (listen 127.0.0.1) — raramente necessário:
 #

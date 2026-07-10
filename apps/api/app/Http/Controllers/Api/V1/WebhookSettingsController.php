@@ -4,11 +4,14 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Organization;
+use App\Services\WebhookDispatcher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class WebhookSettingsController extends Controller
 {
+    public function __construct(private WebhookDispatcher $webhooks) {}
+
     public function show(): JsonResponse
     {
         $org = Organization::findOrFail(tenant('id'));
@@ -28,6 +31,14 @@ class WebhookSettingsController extends Controller
             'webhook_events' => 'nullable|array',
             'webhook_events.*' => 'string|max:64',
         ]);
+
+        if (! empty($data['webhook_url'])) {
+            try {
+                $this->webhooks->assertSafeUrl($data['webhook_url']);
+            } catch (\InvalidArgumentException $e) {
+                return response()->json(['message' => $e->getMessage()], 422);
+            }
+        }
 
         $org = Organization::findOrFail(tenant('id'));
         $merged = array_merge($org->data ?? [], array_filter([
@@ -54,6 +65,8 @@ class WebhookSettingsController extends Controller
         }
 
         try {
+            $this->webhooks->assertSafeUrl($url);
+
             $response = \Illuminate\Support\Facades\Http::timeout(10)->post($url, [
                 'event' => 'webhook.test',
                 'organization_id' => $org->id,
@@ -64,6 +77,8 @@ class WebhookSettingsController extends Controller
                 'ok' => $response->successful(),
                 'status' => $response->status(),
             ]);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
         } catch (\Throwable $e) {
             return response()->json([
                 'ok' => false,

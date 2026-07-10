@@ -61,11 +61,12 @@ services:
     volumes:
       - ../../apps/api:/var/www/html
 
-  horizon:
+  # queue:work — Horizon não está no composer; evita Compose quebrado em prod
+  queue-worker:
     build:
       context: ../..
       dockerfile: apps/api/Dockerfile
-    command: php artisan horizon
+    command: php artisan queue:work redis --queue=default,channel --sleep=1 --tries=3
     env_file:
       - ../../.env
     environment:
@@ -74,6 +75,7 @@ services:
     depends_on:
       - api
       - redis
+
 
   ai-engine:
     build:
