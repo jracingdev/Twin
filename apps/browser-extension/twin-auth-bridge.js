@@ -1,18 +1,22 @@
 /**
- * Ponte: lê credenciais do localStorage do painel TWIN.
+ * Ponte: lê credenciais do sessionStorage do painel TWIN
+ * (com fallback a localStorage legado durante migração).
  * Notifica a extensão quando há sessão ativa ao carregar a página.
+ * Token da extensão é persistido em chrome.storage.local (nunca sync).
  *
  * Nota: content scripts não interceptam setItem da página (world isolado).
  * Login na mesma aba exige reimportar via popup ou recarregar após login.
+ * sessionStorage não dispara o evento `storage` entre abas.
  */
 const TOKEN_KEY = "twin_token";
 const ORG_KEY = "twin_organization_id";
 
 function readAuth() {
-  return {
-    token: localStorage.getItem(TOKEN_KEY) || "",
-    tenantId: localStorage.getItem(ORG_KEY) || "",
-  };
+  const token =
+    sessionStorage.getItem(TOKEN_KEY) || localStorage.getItem(TOKEN_KEY) || "";
+  const tenantId =
+    sessionStorage.getItem(ORG_KEY) || localStorage.getItem(ORG_KEY) || "";
+  return { token, tenantId };
 }
 
 function notifyExtension() {
@@ -42,7 +46,7 @@ if (readAuth().token) {
   notifyExtension();
 }
 
-// Login/logout/troca de org em outra aba do painel
+// Logout/troca de org em outra aba (apenas localStorage legado dispara storage)
 window.addEventListener("storage", (e) => {
   if (e.key === TOKEN_KEY || e.key === ORG_KEY) {
     notifyExtension();

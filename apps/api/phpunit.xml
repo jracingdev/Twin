@@ -14,6 +14,8 @@
         <env name="APP_KEY" value="base64:2fl+KtvkdphvQo0zBbwX5t6Z8v0h8h8h8h8h8h8h8h8="/>
         <env name="DB_CONNECTION" value="sqlite"/>
         <env name="DB_DATABASE" value=":memory:"/>
+        <env name="CACHE_STORE" value="array"/>
+        <env name="SESSION_DRIVER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="AI_ENGINE_SECRET" value="test-secret"/>
     </php>

@@ -35,3 +35,7 @@ Cron diário:
 ```
 0 3 * * * APP_DIR=/opt/twin /opt/twin/infra/vps/backup.sh
 ```
+
+## Observabilidade
+
+Monitoramento de erros/APM com Sentry é opcional e desligado por padrão. Para ativar, defina `SENTRY_DSN` (e, se quiser, `SENTRY_ENVIRONMENT` / `SENTRY_TRACES_SAMPLE_RATE`) no `.env` da API e/ou do web — ver stub em `.env.example`. Sem DSN, nenhum SDK de APM é obrigatório; logs de aplicação e healthchecks da VPS continuam sendo a base operacional.

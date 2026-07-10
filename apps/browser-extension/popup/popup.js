@@ -1,5 +1,28 @@
 const DEFAULT_API_URL = "https://api.twin.app.br/api/v1";
 
+/** Credenciais só em chrome.storage.local (nunca sync). */
+const STORAGE_KEYS = ["apiUrl", "token", "tenantId", "twinId", "intensity", "sellerMode"];
+
+async function extensionStorageGet(keys = STORAGE_KEYS) {
+  const local = await chrome.storage.local.get(keys);
+  if (local.token) return local;
+  try {
+    const sync = await chrome.storage.sync.get(keys);
+    if (sync.token) {
+      await chrome.storage.local.set(sync);
+      await chrome.storage.sync.remove(keys);
+      return { ...local, ...sync };
+    }
+  } catch {
+    /* sync indisponível */
+  }
+  return local;
+}
+
+async function extensionStorageSet(values) {
+  await chrome.storage.local.set(values);
+}
+
 const TWIN_LOGO_SVG = `<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="#00d4ff" stroke-width="1.5"/><path d="M7 8h10M7 12h7M7 16h10" stroke="#00d4ff" stroke-width="1.5" stroke-linecap="round"/></svg>`;
 
 const fields = {
@@ -36,14 +59,7 @@ function setAuthBadge(reason, message) {
 }
 
 async function loadSettings() {
-  const data = await chrome.storage.sync.get([
-    "apiUrl",
-    "token",
-    "tenantId",
-    "twinId",
-    "intensity",
-    "sellerMode",
-  ]);
+  const data = await extensionStorageGet();
 
   fields.apiUrl.value = data.apiUrl || DEFAULT_API_URL;
   fields.token.value = data.token || "";
@@ -55,7 +71,7 @@ async function loadSettings() {
 
 async function saveSettings(e) {
   e.preventDefault();
-  await chrome.storage.sync.set({
+  await extensionStorageSet({
     apiUrl: fields.apiUrl.value.trim() || DEFAULT_API_URL,
     token: fields.token.value.trim(),
     tenantId: fields.tenantId.value.trim(),
@@ -70,7 +86,7 @@ async function saveSettings(e) {
 async function refreshTwins() {
   setStatus("Carregando twins…");
   try {
-    await chrome.storage.sync.set({
+    await extensionStorageSet({
       apiUrl: fields.apiUrl.value.trim() || DEFAULT_API_URL,
       token: fields.token.value.trim(),
       tenantId: fields.tenantId.value.trim(),
@@ -168,7 +184,7 @@ async function bootstrap() {
   if (!fields.token.value) {
     const imported = await importFromTwinWeb();
     if (imported) {
-      await chrome.storage.sync.set({
+      await extensionStorageSet({
         apiUrl: fields.apiUrl.value.trim() || DEFAULT_API_URL,
         token: fields.token.value.trim(),
         tenantId: fields.tenantId.value.trim(),

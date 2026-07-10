@@ -113,6 +113,16 @@ Guia de produto e setup em produção: [docs/product/channels.md](docs/product/c
 
 **WhatsApp Web (copiloto no navegador):** extensão em `apps/browser-extension/` — guia em [docs/product/whatsapp-copilot.md](docs/product/whatsapp-copilot.md).
 
+## Auth web (client)
+
+O painel Next.js usa Bearer Sanctum com token em **`sessionStorage`** (não `localStorage`) e um cookie de presença `twin_auth=1` (`SameSite=Lax`, `Secure` em HTTPS) para o `middleware.ts` proteger rotas no servidor. Sessões antigas em `localStorage` são migradas automaticamente no primeiro acesso. Evolução futura: Sanctum SPA com cookie httpOnly + CSRF.
+
+A extensão Chrome guarda token/tenant só em **`chrome.storage.local`** (nunca `sync`).
+
+## Observabilidade
+
+APM/erros via Sentry é **opcional**: defina `SENTRY_DSN` no `.env` (ver `.env.example`) quando quiser enviar exceções/traces. Sem DSN, a plataforma opera normalmente sem SDK de APM. Detalhes em [docs/deployment/vps-quickstart.md](docs/deployment/vps-quickstart.md#observabilidade).
+
 ## Checklist produção
 
 - [ ] `APP_ENV=production`, `APP_DEBUG=false`
@@ -124,6 +134,7 @@ Guia de produto e setup em produção: [docs/product/channels.md](docs/product/c
 - [ ] Pinecone + OpenAI
 - [ ] CORS e `FRONTEND_URL` corretos
 - [ ] Backups landlord e tenants
+- [ ] (Opcional) `SENTRY_DSN` para APM/erros
 
 ## Pinecone (opcional)
 

@@ -44,7 +44,7 @@ Extensão Chrome/Edge (Manifest V3) que integra o **TWIN** ao [WhatsApp Web](htt
 
    - **URL da API** — padrão `https://api.twin.app.br/api/v1` (local: `http://localhost:8080/api/v1`)
 
-   - **Token** — Bearer do login TWIN (`twin_token` no localStorage do painel web)
+   - **Token** — Bearer do login TWIN (`twin_token` no sessionStorage do painel web)
 
    - **ID da organização** — UUID (`twin_organization_id` no painel web)
 
@@ -66,11 +66,15 @@ No navegador, com sessão ativa em twin.app.br:
 
 ```javascript
 
-localStorage.getItem('twin_token')
+sessionStorage.getItem('twin_token')
 
-localStorage.getItem('twin_organization_id')
+sessionStorage.getItem('twin_organization_id')
 
 ```
+
+
+
+> Credenciais da extensão ficam em `chrome.storage.local` (nunca `chrome.storage.sync`, para não sincronizar o token na conta Google).
 
 
 
@@ -114,13 +118,13 @@ localStorage.getItem('twin_organization_id')
 
 | `manifest.json` | Permissões MV3, content scripts |
 
-| `background.js` | Chamadas à API TWIN (contorna CORS), validação de auth |
+| `background.js` | Chamadas à API TWIN (contorna CORS), validação de auth; token em `chrome.storage.local` |
 
 | `content.js` | DOM WhatsApp Web + painel lateral |
 
-| `twin-auth-bridge.js` | Importa token do painel TWIN e notifica a extensão |
+| `twin-auth-bridge.js` | Importa token do painel TWIN (sessionStorage) e notifica a extensão |
 
-| `popup/` | Configurações (API, token, twin) |
+| `popup/` | Configurações (API, token, twin) — persiste em `chrome.storage.local` |
 
 
 
@@ -296,7 +300,7 @@ Prioriza seleção dentro de `#main`; fallback para qualquer seleção na págin
 
 - **401**: token expirado — faça login no painel e reimporte.
 
-- **403**: org ID incorreto — confira `twin_organization_id` no localStorage.
+- **403**: org ID incorreto — confira `twin_organization_id` no sessionStorage.
 
 
 
